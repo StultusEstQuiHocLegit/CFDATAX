@@ -2,7 +2,7 @@
 
 This project gathers bankruptcy related 8‑K filings from the SEC EDGAR system and enriches them with company metadata and historical financial data.
 
-Two CSV files are produced when running `DataCollector0.php`:
+Two CSV files are produced an reports as attachments saved when running `DataCollector0.php`:
 
 ## main.csv
 
@@ -111,6 +111,22 @@ Historical financial metrics for each company from `YEAR - 10` through `YEAR` (2
 Example for company details data:
 - [Apple](https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json)
 
+## ./AnnualReports/
+
+Historical annual reports for each company from `YEAR - 10` through `YEAR` (2014‑2024 when YEAR=2024).
+Saved in the format: [CIK]_[YEAR].html
+
+Example for annual report company data:
+- [Apple](https://www.sec.gov/Archives/edgar/data/320193/000032019324000123/aapl-20240928.htm)
+
+## ./QuarterlyReports/
+
+Historical quarterly reports for each company from `YEAR - 10` through `YEAR` (2014‑2024 when YEAR=2024).
+Saved in the format: [CIK]_[YEAR]_["Q1" or "Q2" or "Q3" or "Q4"].html
+
+Example for annual report company data:
+- [Apple](https://www.sec.gov/Archives/edgar/data/320193/000032019325000057/aapl-20250329.htm)
+
 ### USA Federal Holidays for Year 2024
 
 | Date        | Day of Week | Holiday Name                               |
@@ -126,3 +142,4 @@ Example for company details data:
 | November 11 | Monday      | Veterans Day                               |
 | November 28 | Thursday    | Thanksgiving Day                           |
 | December 25 | Wednesday   | Christmas Day                              |
+
