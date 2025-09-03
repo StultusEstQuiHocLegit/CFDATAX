@@ -42,6 +42,9 @@ const RANDOM_SEED                 = null;    // set integer for reproducible sam
 const START_YEAR                  = YEAR - 10; // financial history range start
 const MAIN_CSV_FILE               = __DIR__ . '/main.csv';
 const FINANCIAL_CSV_FILE          = __DIR__ . '/financials.csv';
+const REPORTS_CSV_FILE            = __DIR__ . '/reports.csv';
+// const ANNUAL_REPORT_DIR           = __DIR__ . '/AnnualReports';
+// const QUARTERLY_REPORT_DIR        = __DIR__ . '/QuarterlyReports';
 const FINANCIAL_FIELD_MAP         = [
     'assets' => 'Assets',
     'CurrentAssets' => 'AssetsCurrent',
@@ -327,6 +330,104 @@ function saveFinancialHistory(string $cik): void {
     }
 }
 
+// Fetch recent filings (10-K, 10-Q, etc.) for a company
+function getCompanyFilings(string $cik): array {
+    if (!$cik) return [];
+    $cikPadded = str_pad($cik, 10, '0', STR_PAD_LEFT);
+    $url = SUBMISSION_ENDPOINT . 'CIK' . $cikPadded . '.json';
+    $status = 0;
+    $data = http_get_json($url, $status);
+    if (!$data) return [];
+    $recent = $data['filings']['recent'] ?? [];
+    $filings = [];
+    if (!empty($recent['form'])) {
+        $count = count($recent['form']);
+        for ($i = 0; $i < $count; $i++) {
+            $filings[] = [
+                'form' => $recent['form'][$i] ?? '',
+                'filingDate' => $recent['filingDate'][$i] ?? '',
+                'reportDate' => $recent['reportDate'][$i] ?? '',
+                'accessionNumber' => $recent['accessionNumber'][$i] ?? '',
+                'primaryDocument' => $recent['primaryDocument'][$i] ?? '',
+            ];
+        }
+    }
+    return $filings;
+}
+
+/*
+// Save annual report HTML filings to subfolder
+function saveAnnualReports(string $cik, array $filings): void {
+    if (!is_dir(ANNUAL_REPORT_DIR)) mkdir(ANNUAL_REPORT_DIR, 0777, true);
+    $cikTrim = ltrim($cik, '0');
+    $saved = [];
+    foreach ($filings as $f) {
+        $form = strtoupper($f['form'] ?? '');
+        if ($form !== '10-K' && $form !== '10-K/A') continue;
+        $date = $f['reportDate'] ?: $f['filingDate'];
+        if (!$date) continue;
+        $year = (int)substr($date, 0, 4);
+        if ($year < START_YEAR || $year > YEAR) continue;
+        if (isset($saved[$year])) continue;
+        $acc = str_replace('-', '', $f['accessionNumber'] ?? '');
+        $doc = $f['primaryDocument'] ?? '';
+        if (!$acc || !$doc) continue;
+        $url = "https://www.sec.gov/Archives/edgar/data/$cikTrim/$acc/$doc";
+        $status = 0;
+        $html = http_get_text($url, $status);
+        if ($status === 200 && $html) {
+            file_put_contents(ANNUAL_REPORT_DIR . "/{$cik}_{$year}.html", $html);
+            $saved[$year] = true;
+        }
+    }
+}
+
+// Save quarterly report HTML filings to subfolder
+*/
+
+// Save report links (annual and quarterly) to CSV
+function saveReportLinks(string $cik, array $filings): void {
+    static $idpk = 0;
+    $cikTrim = ltrim($cik, '0');
+    $byYear = [];
+    foreach ($filings as $f) {
+        $form = strtoupper($f['form'] ?? '');
+        $date = $f['reportDate'] ?: $f['filingDate'];
+        if (!$date) continue;
+        $year = (int)substr($date, 0, 4);
+        if ($year < START_YEAR || $year > YEAR) continue;
+        $acc = str_replace('-', '', $f['accessionNumber'] ?? '');
+        $doc = $f['primaryDocument'] ?? '';
+        if (!$acc || !$doc) continue;
+        $url = "https://www.sec.gov/Archives/edgar/data/$cikTrim/$acc/$doc";
+        if ($form === '10-K' || $form === '10-K/A') {
+            if (!isset($byYear[$year]['AnnualReportLink'])) {
+                $byYear[$year]['AnnualReportLink'] = $url;
+            }
+        } elseif ($form === '10-Q' || $form === '10-Q/A') {
+            $month = (int)substr($date, 5, 2);
+            $quarter = $month <= 3 ? 'Q1' : ($month <= 6 ? 'Q2' : ($month <= 9 ? 'Q3' : 'Q4'));
+            $key = 'QuarterlyReportLink' . $quarter;
+            if (!isset($byYear[$year][$key])) {
+                $byYear[$year][$key] = $url;
+            }
+        }
+    }
+    foreach ($byYear as $year => $links) {
+        $row = [
+            'idpk' => ++$idpk,
+            'CIK' => $cik,
+            'year' => $year,
+            'AnnualReportLink' => $links['AnnualReportLink'] ?? '',
+            'QuarterlyReportLinkQ1' => $links['QuarterlyReportLinkQ1'] ?? '',
+            'QuarterlyReportLinkQ2' => $links['QuarterlyReportLinkQ2'] ?? '',
+            'QuarterlyReportLinkQ3' => $links['QuarterlyReportLinkQ3'] ?? '',
+            'QuarterlyReportLinkQ4' => $links['QuarterlyReportLinkQ4'] ?? '',
+        ];
+        appendToCsv(REPORTS_CSV_FILE, $row);
+    }
+}
+
 // Build an EDGAR full-text search URL with provided query params.
 function buildSearchUrl(array $params): string {
     $q = http_build_query($params);
@@ -518,6 +619,10 @@ function processSingleHit(array $hit): void {
 
     appendToCsv(MAIN_CSV_FILE, $row);
     saveFinancialHistory((string)$cik);
+    $filings = getCompanyFilings((string)$cik);
+    // saveAnnualReports((string)$cik, $filings);
+    // saveQuarterlyReports((string)$cik, $filings);
+    saveReportLinks((string)$cik, $filings);
     usleep(POLITE_USLEEP);
 }
 
