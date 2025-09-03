@@ -114,7 +114,7 @@ Example for company details data:
 ## ./AnnualReports/
 
 Historical annual reports for each company from `YEAR - 10` through `YEAR` (2014‑2024 when YEAR=2024).
-Saved in the format: [CIK]_[YEAR].html
+Saved in the format: `[CIK]_[YEAR]`.html
 
 Example for annual report company data:
 - [Apple](https://www.sec.gov/Archives/edgar/data/320193/000032019324000123/aapl-20240928.htm)
@@ -122,7 +122,7 @@ Example for annual report company data:
 ## ./QuarterlyReports/
 
 Historical quarterly reports for each company from `YEAR - 10` through `YEAR` (2014‑2024 when YEAR=2024).
-Saved in the format: [CIK]_[YEAR]_["Q1" or "Q2" or "Q3" or "Q4"].html
+Saved in the format: `[CIK]_[YEAR]_["Q1" or "Q2" or "Q3" or "Q4"]`.html
 
 Example for annual report company data:
 - [Apple](https://www.sec.gov/Archives/edgar/data/320193/000032019325000057/aapl-20250329.htm)
