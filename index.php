@@ -345,7 +345,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     }
 
     function formatUSD(val){
-      const num = Number(val);
+      const num = Number(String(val).replace(/,/g, ''));
       if(isNaN(num)) return null;
       const sign = num < 0 ? '-' : '';
       const abs = Math.abs(num);
@@ -364,9 +364,10 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       }
       const prefix = mainParts.join(',');
       const faded = fadedParts.length ? ',' + fadedParts.join(',') : '';
-      const fadedHTML = faded ? `<span style="opacity:.7">${faded}</span>` : '';
+      const fadedHTML = faded ? `<span style="opacity:.5">${faded}</span>` : '';
       const decimal = fracPart ? '.' + abs.toFixed(2).split('.')[1] : '';
-      return `${sign}${prefix}${fadedHTML}${decimal} USD`;
+      const decimalHTML = decimal ? `<span style="opacity:.7">${decimal}</span>` : '';
+      return `${sign}${prefix}${fadedHTML}${decimalHTML} <span style="opacity:.3">USD</span>`;
     }
 
     function renderResults(list){
