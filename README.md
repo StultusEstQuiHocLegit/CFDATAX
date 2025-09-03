@@ -2,7 +2,7 @@
 
 This project gathers bankruptcy related 8‑K filings from the SEC EDGAR system and enriches them with company metadata and historical financial data.
 
-Two CSV files are produced an reports as attachments saved when running `DataCollector0.php`:
+Three CSV files are produced (and reports as attachments can be saved too if the correspoding part is commented in / activated) when running `DataCollector0.php`:
 
 ## main.csv
 
@@ -111,6 +111,21 @@ Historical financial metrics for each company from `YEAR - 10` through `YEAR` (2
 Example for company details data:
 - [Apple](https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json)
 
+## reports.csv
+
+Historical reports for each company from `YEAR - 10` through `YEAR` (2014‑2024 when YEAR=2024). Each row represents one year.
+
+| Column | Description |
+| --- | --- |
+| idpk | sequential row identifier |
+| CIK | central index key matching main.csv |
+| year | fiscal year of the data |
+| AnnualReportLink | link to the HTML file with the annual report |
+| QuarterlyReportLinkQ1 | link to the HTML file with the quarterly report for Q1 |
+| QuarterlyReportLinkQ2 | link to the HTML file with the quarterly report for Q2 |
+| QuarterlyReportLinkQ3 | link to the HTML file with the quarterly report for Q3 |
+| QuarterlyReportLinkQ4 | link to the HTML file with the quarterly report for Q4 |
+
 ## ./AnnualReports/
 
 Historical annual reports for each company from `YEAR - 10` through `YEAR` (2014‑2024 when YEAR=2024).
@@ -124,7 +139,7 @@ Example for annual report company data:
 Historical quarterly reports for each company from `YEAR - 10` through `YEAR` (2014‑2024 when YEAR=2024).
 Saved in the format: `[CIK]_[YEAR]_["Q1" or "Q2" or "Q3" or "Q4"]`.html
 
-Example for annual report company data:
+Example for quarterly report company data:
 - [Apple](https://www.sec.gov/Archives/edgar/data/320193/000032019325000057/aapl-20250329.htm)
 
 ### USA Federal Holidays for Year 2024
