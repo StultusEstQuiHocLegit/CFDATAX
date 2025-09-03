@@ -153,6 +153,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       border-radius:24px;
       box-shadow:0 20px 60px rgba(0,0,0,.55);
       overflow:hidden;
+      position:relative;
     }
     .modal-content{
       max-height:85vh;
@@ -162,7 +163,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     .modal .title{
       display:flex; flex-wrap:wrap; gap:10px; align-items:baseline; justify-content:space-between;
     }
-    .years{ display:flex; flex-wrap:wrap; gap:8px; margin-top:12px }
+    .years{ display:flex; flex-wrap:wrap; gap:8px; margin-top:36px }
     .year-btn{
       padding:8px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.1);
       background:#0f1015; color:#dfe4ea; font-weight:600; cursor:pointer;
@@ -177,9 +178,21 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     .fin-item .k{ color:var(--muted); font-size:12px }
     .fin-item .v{ font-weight:600; font-size:14px }
     .fin-item.empty{ opacity: 0.3 }
+    .fin-item.zero{ opacity: 0.7 }
     .links{
       display:flex; gap:10px; flex-wrap:wrap; margin-top:14px
     }
+    .close-btn{
+      position:absolute; top:10px; right:10px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.08);
+      color:var(--text);
+      border-radius:8px;
+      padding:4px 8px;
+      cursor:pointer;
+      opacity:0.5;
+    }
+    .close-btn:hover{opacity:.8}
     .link-card{
       width:64px; height:64px; display:flex; align-items:center; justify-content:center;
       border-radius:14px;
@@ -265,6 +278,18 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     const modal = document.getElementById('modal');
     const modalContent = modal.querySelector('.modal-content');
 
+    // Translation map for state of incorporation codes
+    const stateNameMap = {
+      'AL':'Alabama','AK':'Alaska','AZ':'Arizona','AR':'Arkansas','CA':'California','CO':'Colorado','CT':'Connecticut',
+      'DE':'Delaware','FL':'Florida','GA':'Georgia','HI':'Hawaii','ID':'Idaho','IL':'Illinois','IN':'Indiana',
+      'IA':'Iowa','KS':'Kansas','KY':'Kentucky','LA':'Louisiana','ME':'Maine','MD':'Maryland','MA':'Massachusetts',
+      'MI':'Michigan','MN':'Minnesota','MS':'Mississippi','MO':'Missouri','MT':'Montana','NE':'Nebraska','NV':'Nevada',
+      'NH':'New Hampshire','NJ':'New Jersey','NM':'New Mexico','NY':'New York','NC':'North Carolina','ND':'North Dakota',
+      'OH':'Ohio','OK':'Oklahoma','OR':'Oregon','PA':'Pennsylvania','RI':'Rhode Island','SC':'South Carolina',
+      'SD':'South Dakota','TN':'Tennessee','TX':'Texas','UT':'Utah','VT':'Vermont','VA':'Virginia','WA':'Washington',
+      'WV':'West Virginia','WI':'Wisconsin','WY':'Wyoming','DC':'District of Columbia','PR':'Puerto Rico'
+    };
+
     function normalize(s){
       return (s||"").toString().toLowerCase().replace(/[^a-z0-9\.\- ]+/g,' ').replace(/\s+/g,' ').trim();
     }
@@ -319,6 +344,31 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       return s;
     }
 
+    function formatUSD(val){
+      const num = Number(val);
+      if(isNaN(num)) return null;
+      const sign = num < 0 ? '-' : '';
+      const abs = Math.abs(num);
+      const intPart = Math.trunc(abs);
+      const fracPart = abs - intPart;
+      const parts = intPart.toLocaleString('en-US').split(',');
+      const digits = parts.join('').length;
+      let mainParts = parts;
+      let fadedParts = [];
+      if(digits > 7){
+        mainParts = parts.slice(0, -2);
+        fadedParts = parts.slice(-2);
+      } else if(digits > 3){
+        mainParts = parts.slice(0, -1);
+        fadedParts = parts.slice(-1);
+      }
+      const prefix = mainParts.join(',');
+      const faded = fadedParts.length ? ',' + fadedParts.join(',') : '';
+      const fadedHTML = faded ? `<span style="opacity:.7">${faded}</span>` : '';
+      const decimal = fracPart ? '.' + abs.toFixed(2).split('.')[1] : '';
+      return `${sign}${prefix}${fadedHTML}${decimal} USD`;
+    }
+
     function renderResults(list){
       resultsEl.innerHTML = "";
       const frag = document.createDocumentFragment();
@@ -364,10 +414,18 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
         <div class="meta">
           ${base.Website ? `<a class="pill" href="${fmt(base.Website)}" target="_blank" rel="noopener">Website</a>`:""}
           ${base.InvestorWebsite ? `<a class="pill" href="${fmt(base.InvestorWebsite)}" target="_blank" rel="noopener">IR</a>`:""}
-          ${base.FilingURL ? `<a class="pill" href="${fmt(base.FilingURL)}" target="_blank" rel="noopener">Latest Filing</a>`:""}
         </div>
       `;
       modalContent.appendChild(title);
+
+      const existingClose = modal.querySelector('.close-btn');
+      if(existingClose) existingClose.remove();
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'close-btn';
+      closeBtn.innerHTML = '<strong>X</strong>';
+      closeBtn.title = 'close';
+      closeBtn.addEventListener('click', () => closeModal());
+      modal.appendChild(closeBtn);
 
       // Company details (from main.csv) — show all non-empty fields
       const kv = document.createElement('div');
@@ -375,10 +433,22 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       kv.style.marginTop = '16px';
       for(const [k,v] of Object.entries(base)){
         if(v===undefined || v===null) continue;
-        const sv = String(v).trim();
+        let sv = String(v).trim();
         if(!sv) continue;
+        if(k === 'StateOfIncorporation'){
+          const full = stateNameMap[sv.toUpperCase()];
+          if(full) sv = `${sv} (${full})`;
+        }
         const kEl = document.createElement('div'); kEl.className='k'; kEl.textContent = formatKV(k);
-        const vEl = document.createElement('div'); vEl.className='v'; vEl.textContent = sv;
+        const vEl = document.createElement('div'); vEl.className='v';
+        if(k === 'FilingURL'){
+          const a = document.createElement('a');
+          a.href = sv; a.textContent = sv; a.target='_blank'; a.rel='noopener';
+          a.style.opacity = 0.5;
+          vEl.appendChild(a);
+        } else {
+          vEl.textContent = sv;
+        }
         kv.appendChild(kEl); kv.appendChild(vEl);
       }
       modalContent.appendChild(kv);
@@ -424,9 +494,11 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
         for(const [k,v] of Object.entries(fin)){
           if(omit.has(k)) continue;
           const val = fmt(v).trim();
+          const num = Number(val);
           const item = document.createElement('div');
-          item.className = 'fin-item' + (val ? '' : ' empty');
-          item.innerHTML = `<div class="k">${formatKV(k)}</div><div class="v">${val}</div>`;
+          item.className = 'fin-item' + (val === '' ? ' empty' : (!Number.isNaN(num) && num === 0 ? ' zero' : ''));
+          const formatted = formatUSD(val);
+          item.innerHTML = `<div class="k">${formatKV(k)}</div><div class="v">${formatted !== null ? formatted : val}</div>`;
           grid.appendChild(item);
         }
         sec.appendChild(grid);
@@ -460,6 +532,8 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       if(ev && ev.target && ev.target.closest && ev.target.closest('.modal')) return;
       overlay.classList.remove('show');
       modalContent.innerHTML = "";
+      const cb = modal.querySelector('.close-btn');
+      if(cb) cb.remove();
       document.body.style.overflow='';
     }
 
