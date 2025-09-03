@@ -147,11 +147,16 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     .overlay.show{ display:flex }
     .modal{
       max-width:1000px; width:min(100%, 1000px);
-      max-height:85vh; overflow:auto;
+      max-height:85vh;
       background:linear-gradient(180deg, #101119, #0b0c10);
       border:1px solid rgba(255,255,255,.12);
       border-radius:24px;
       box-shadow:0 20px 60px rgba(0,0,0,.55);
+      overflow:hidden;
+    }
+    .modal-content{
+      max-height:85vh;
+      overflow:auto;
       padding:24px;
     }
     .modal .title{
@@ -171,6 +176,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     .fin-item{ background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px }
     .fin-item .k{ color:var(--muted); font-size:12px }
     .fin-item .v{ font-weight:600; font-size:14px }
+    .fin-item.empty{ opacity: 0.3 }
     .links{
       display:flex; gap:10px; flex-wrap:wrap; margin-top:14px
     }
@@ -208,7 +214,9 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
   </main>
 
   <div id="overlay" class="overlay">
-    <div id="modal" class="modal" role="dialog" aria-modal="true"></div>
+    <div id="modal" class="modal" role="dialog" aria-modal="true">
+      <div class="modal-content"></div>
+    </div>
   </div>
 
   <footer>
@@ -255,6 +263,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     const statsEl = document.getElementById('stats');
     const overlay = document.getElementById('overlay');
     const modal = document.getElementById('modal');
+    const modalContent = modal.querySelector('.modal-content');
 
     function normalize(s){
       return (s||"").toString().toLowerCase().replace(/[^a-z0-9\.\- ]+/g,' ').replace(/\s+/g,' ').trim();
@@ -339,7 +348,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     function openModal(cik){
       const base = byCIK.get(cik) || {};
       const sym  = symbolByCIK.get(cik) || "";
-      modal.innerHTML = "";
+      modalContent.innerHTML = "";
       const title = document.createElement('div');
       title.className = 'title';
       title.innerHTML = `
@@ -358,11 +367,12 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
           ${base.FilingURL ? `<a class="pill" href="${fmt(base.FilingURL)}" target="_blank" rel="noopener">Latest Filing</a>`:""}
         </div>
       `;
-      modal.appendChild(title);
+      modalContent.appendChild(title);
 
       // Company details (from main.csv) — show all non-empty fields
       const kv = document.createElement('div');
       kv.className = 'kv';
+      kv.style.marginTop = '16px';
       for(const [k,v] of Object.entries(base)){
         if(v===undefined || v===null) continue;
         const sv = String(v).trim();
@@ -371,7 +381,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
         const vEl = document.createElement('div'); vEl.className='v'; vEl.textContent = sv;
         kv.appendChild(kEl); kv.appendChild(vEl);
       }
-      modal.appendChild(kv);
+      modalContent.appendChild(kv);
 
       // Years
       const years = Array.from((yearsByCIK.get(cik)||new Set())).sort((a,b)=> String(b).localeCompare(String(a)));
@@ -382,13 +392,13 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
           b.className = 'year-btn'+(idx===0?' active':'');
           b.textContent = y;
           b.addEventListener('click', ()=>{
-            modal.querySelectorAll('.year-btn').forEach(x=>x.classList.remove('active'));
+            modalContent.querySelectorAll('.year-btn').forEach(x=>x.classList.remove('active'));
             b.classList.add('active');
             renderYear(cik, y);
           });
           yearsWrap.appendChild(b);
         });
-        modal.appendChild(yearsWrap);
+        modalContent.appendChild(yearsWrap);
         // initial render
         renderYear(cik, years[0]);
       }
@@ -399,7 +409,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
 
     function renderYear(cik, year){
       // remove previous fin + links section if present
-      const old = modal.querySelector('#year-section');
+      const old = modalContent.querySelector('#year-section');
       if(old) old.remove();
 
       const sec = document.createElement('section');
@@ -413,8 +423,10 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
         const omit = new Set(['idpk','CIK','year','EntityRegistrantName','EntityCentralIndexKey','TradingSymbol','EntityIncorporationStateCountryCode','EntityFilerCategory','DocumentType','AmendmentFlag','DocumentPeriodEndDate','DocumentFiscalPeriodFocus','DocumentFiscalYearFocus','CurrentFiscalYearEndDate']);
         for(const [k,v] of Object.entries(fin)){
           if(omit.has(k)) continue;
-          const item = document.createElement('div'); item.className='fin-item';
-          item.innerHTML = `<div class="k">${formatKV(k)}</div><div class="v">${fmt(v)}</div>`;
+          const val = fmt(v).trim();
+          const item = document.createElement('div');
+          item.className = 'fin-item' + (val ? '' : ' empty');
+          item.innerHTML = `<div class="k">${formatKV(k)}</div><div class="v">${val}</div>`;
           grid.appendChild(item);
         }
         sec.appendChild(grid);
@@ -424,29 +436,30 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       const rep = reportsByCIKYear.get(cik+'|'+year) || null;
       const links = [];
       if(rep){
-        if(rep.AnnualReportLink) links.push({label:'AR', url: rep.AnnualReportLink});
-        if(rep.QuarterlyReportLinkQ1) links.push({label:'Q1', url: rep.QuarterlyReportLinkQ1});
-        if(rep.QuarterlyReportLinkQ2) links.push({label:'Q2', url: rep.QuarterlyReportLinkQ2});
-        if(rep.QuarterlyReportLinkQ3) links.push({label:'Q3', url: rep.QuarterlyReportLinkQ3});
-        if(rep.QuarterlyReportLinkQ4) links.push({label:'Q4', url: rep.QuarterlyReportLinkQ4});
+        if(rep.AnnualReportLink) links.push({label:'AR', url: rep.AnnualReportLink, title:'open annual report'});
+        if(rep.QuarterlyReportLinkQ1) links.push({label:'Q1', url: rep.QuarterlyReportLinkQ1, title:'open quarterly report for quarter Q1'});
+        if(rep.QuarterlyReportLinkQ2) links.push({label:'Q2', url: rep.QuarterlyReportLinkQ2, title:'open quarterly report for quarter Q2'});
+        if(rep.QuarterlyReportLinkQ3) links.push({label:'Q3', url: rep.QuarterlyReportLinkQ3, title:'open quarterly report for quarter Q3'});
+        if(rep.QuarterlyReportLinkQ4) links.push({label:'Q4', url: rep.QuarterlyReportLinkQ4, title:'open quarterly report for quarter Q4'});
       }
       if(links.length){
         const lwrap = document.createElement('div'); lwrap.className='links';
         for(const L of links){
           const a = document.createElement('a'); a.className='link-card'; a.href = L.url; a.target='_blank'; a.rel='noopener';
           a.textContent = L.label;
+          if(L.title) a.title = L.title;
           lwrap.appendChild(a);
         }
         sec.appendChild(lwrap);
       }
 
-      modal.appendChild(sec);
+      modalContent.appendChild(sec);
     }
 
     function closeModal(ev){
       if(ev && ev.target && ev.target.closest && ev.target.closest('.modal')) return;
       overlay.classList.remove('show');
-      modal.innerHTML = "";
+      modalContent.innerHTML = "";
       document.body.style.overflow='';
     }
 
