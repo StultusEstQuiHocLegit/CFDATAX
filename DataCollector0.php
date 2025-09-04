@@ -4,7 +4,7 @@
 //
 // Collects 8-K bankruptcy-related filings from SEC EDGAR Full-Text Search for YEAR,
 // picks RANDOM_COMPANY_SAMPLE_SIZE random unique companies (by CIK), and appends rows
-// to CSV files. Streams progress in browser or CLI.
+// to the correspoding CSV files. Streams progress in browser or CLI.
 //
 // Run over console:
 //   php -d display_errors=1 -d error_reporting=E_ALL DataCollector0.php
