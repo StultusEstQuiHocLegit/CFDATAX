@@ -1,5 +1,5 @@
 <?php
-// index.php — single file app that reads CSVs and renders modern UI
+// index.php: single file app that reads CSVs and renders modern UI
 header('Content-Type: text/html; charset=utf-8');
 
 function read_csv_assoc($path){
