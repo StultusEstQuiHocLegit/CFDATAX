@@ -2,7 +2,8 @@
 
 This project gathers bankruptcy related 8‑K filings from the SEC EDGAR system and enriches them with company metadata and historical financial data.
 
-Three CSV files are produced (and reports as attachments can be saved too if the correspoding part is commented in / activated) when running `DataCollector0.php`:
+Three CSV files are produced (and reports as attachments can be saved too if the correspoding part is commented in / activated) for bankrupt companies when running `DataCollector0.php`: `main.csv`, `financials.csv` and `reports.csv`.
+In addition, we also select solvent/healthy/non-bankrupt companies and save their information in: `main_solvent.csv`, `financials_solvent.csv` and `reports_solvent.csv`, whereas in `main_solvent.csv` of course not all columns are filled out (only the columns regarding general company information).
 
 ## main.csv
 
