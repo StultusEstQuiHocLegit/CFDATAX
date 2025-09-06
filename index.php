@@ -150,6 +150,25 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     }
     .card:hover{ opacity:.8; transform:translateY(-2px) }
     .card h3{ margin:4px 0 8px 0; font-size:18px }
+    .card.skeleton{
+      pointer-events:none;
+      position:relative;
+      overflow:hidden;
+      color:transparent;
+      min-height:80px;
+    }
+    .card.skeleton:hover{ opacity:1; transform:none }
+    .card.skeleton::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:linear-gradient(120deg, rgba(255,255,255,0), rgba(255,255,255,.1), rgba(255,255,255,0));
+      animation:shimmer 1.2s infinite;
+    }
+    @keyframes shimmer{
+      0%{transform:translateX(-100%)}
+      100%{transform:translateX(100%)}
+    }
     .meta{ color:var(--muted); font-size:12px; display:flex; flex-wrap:wrap; gap:10px }
     .kv{ display:grid; grid-template-columns: 160px 1fr; gap:6px 12px; font-size:14px; }
     .kv .k{ color:var(--muted) }
@@ -193,11 +212,15 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       color:#fff;
     }
     .fin-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin-top:12px }
-    .fin-item{ background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px }
+    .fin-item{ background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px; display:flex; flex-direction:column }
     .fin-item .k{ color:var(--muted); font-size:12px }
-    .fin-item .v{ font-weight:600; font-size:14px }
+    .fin-item .v{ font-weight:600; font-size:14px; margin-top:auto; display:flex; align-items:center }
+    .fin-item .pct{ font-weight:400; margin-left:auto; text-align:right }
     .fin-item.empty{ opacity: 0.3 }
     .fin-item.zero{ opacity: 0.7 }
+    .fin-item.clickable{ cursor:pointer }
+    .chart-card{ background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px; height:260px; }
+    .chart-card canvas{ width:100%; height:100%; }
     .links{
       display:flex; gap:10px; flex-wrap:wrap; margin-top:14px
     }
@@ -234,7 +257,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       <div class="hero" id="hero">
         <div class="searchbar">
           <input id="q" type="search" placeholder="search..." autocomplete="off" autofocus />
-          <button id="go" class="btn hidden" title="Search">Search</button>
+          <button id="go" class="btn hidden" title="search">search</button>
         </div>
       </div>
     </div>
@@ -255,6 +278,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     <span style="opacity: 0.3">Stultus est, qui hoc legit.</span>
   </footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     // --- DATA PLACEHOLDER (replaced differently in index.php vs preview.html) ---
     const DATA = <?php echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
@@ -297,6 +321,23 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     const modal = document.getElementById('modal');
     const modalContent = modal.querySelector('.modal-content');
 
+    const PAGE_SIZE = 50;
+    let currentResults = [];
+    let loadedCount = 0;
+    let loading = false;
+
+    let lastQuery = "";
+
+    let activeChart = null;
+    function hideActiveChart(){
+      if(activeChart){
+        if(activeChart.chart) activeChart.chart.destroy();
+        activeChart.card.remove();
+        activeChart.container.removeEventListener('click', activeChart.listener);
+        activeChart = null;
+      }
+    }
+
     // Translation map for state of incorporation codes
     const stateNameMap = {
       'AL':'Alabama','AK':'Alaska','AZ':'Arizona','AR':'Arkansas','CA':'California','CO':'Colorado','CT':'Connecticut',
@@ -307,6 +348,60 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       'OH':'Ohio','OK':'Oklahoma','OR':'Oregon','PA':'Pennsylvania','RI':'Rhode Island','SC':'South Carolina',
       'SD':'South Dakota','TN':'Tennessee','TX':'Texas','UT':'Utah','VT':'Vermont','VA':'Virginia','WA':'Washington',
       'WV':'West Virginia','WI':'Wisconsin','WY':'Wyoming','DC':'District of Columbia','PR':'Puerto Rico'
+    };
+
+    // Sentiment for financial metrics: whether a higher value is generally good or bad
+    const METRIC_SENTIMENT = {
+      'assets':'good',
+      'CurrentAssets':'good',
+      'NoncurrentAssets':'good',
+      'liabilities':'bad',
+      'CurrentLiabilities':'bad',
+      'NoncurrentLiabilities':'bad',
+      'LiabilitiesAndStockholdersEquity':'neutral',
+      'equity':'good',
+      'CommonStockValue':'neutral',
+      'RetainedEarningsAccumulatedDeficit':'good',
+      'AccumulatedOtherComprehensiveIncomeLoss':'neutral',
+      'MinorityInterest':'neutral',
+      'revenues':'good',
+      'SalesRevenueNet':'good',
+      'CostOfGoodsSold':'bad',
+      'GrossProfit':'good',
+      'OperatingExpenses':'bad',
+      'SellingGeneralAndAdministrativeExpense':'bad',
+      'ResearchAndDevelopmentExpense':'neutral',
+      'OperatingIncomeLoss':'good',
+      'InterestExpense':'bad',
+      'IncomeBeforeIncomeTaxes':'good',
+      'IncomeTaxExpenseBenefit':'bad',
+      'NetIncomeLoss':'good',
+      'PreferredStockDividendsAndOtherAdjustments':'bad',
+      'NetIncomeLossAvailableToCommonStockholdersBasic':'good',
+      'EarningsPerShareBasic':'good',
+      'EarningsPerShareDiluted':'good',
+      'WeightedAverageNumberOfSharesOutstandingBasic':'neutral',
+      'WeightedAverageNumberOfDilutedSharesOutstanding':'neutral',
+      'NetCashProvidedByUsedInOperatingActivities':'good',
+      'NetCashProvidedByUsedInInvestingActivities':'neutral',
+      'NetCashProvidedByUsedInFinancingActivities':'neutral',
+      'CashAndCashEquivalentsPeriodIncreaseDecrease':'good',
+      'CashAndCashEquivalentsAtCarryingValue':'good',
+      'PaymentsToAcquirePropertyPlantAndEquipment':'neutral',
+      'ProceedsFromIssuanceOfCommonStock':'neutral',
+      'PaymentsOfDividends':'neutral',
+      'RepaymentsOfDebt':'good',
+      'ProceedsFromIssuanceOfDebt':'bad',
+      'DepreciationAndAmortization':'neutral',
+      'InventoryNet':'neutral',
+      'AccountsReceivableNetCurrent':'neutral',
+      'AccountsPayableCurrent':'bad',
+      'Goodwill':'neutral',
+      'IntangibleAssetsNetExcludingGoodwill':'neutral',
+      'PropertyPlantAndEquipmentNet':'good',
+      'LongTermDebtNoncurrent':'bad',
+      'ShortTermBorrowings':'bad',
+      'IncomeTaxesPayableCurrent':'bad'
     };
 
     function normalize(s){
@@ -363,7 +458,14 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       return s;
     }
 
-    function formatUSD(val){
+    const METRIC_UNITS = {
+      'EarningsPerShareBasic': 'USD/share',
+      'EarningsPerShareDiluted': 'USD/share',
+      'WeightedAverageNumberOfSharesOutstandingBasic': 'shares',
+      'WeightedAverageNumberOfDilutedSharesOutstanding': 'shares'
+    };
+
+    function formatAmount(val, unit='USD'){
       const num = Number(String(val).replace(/,/g, ''));
       if(isNaN(num)) return null;
       const sign = num < 0 ? '-' : '';
@@ -386,13 +488,40 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       const fadedHTML = faded ? `<span style="opacity:.5">${faded}</span>` : '';
       const decimal = fracPart ? '.' + abs.toFixed(2).split('.')[1] : '';
       const decimalHTML = decimal ? `<span style="opacity:.7">${decimal}</span>` : '';
-      return `${sign}${prefix}${fadedHTML}${decimalHTML} <span style="opacity:.3">USD</span>`;
+      return `${sign}${prefix}${fadedHTML}${decimalHTML} <span style="opacity:.3">${unit}</span>`;
+    }
+
+    function formatAmountPlain(val, unit='USD'){
+      const num = Number(String(val).replace(/,/g, ''));
+      if(isNaN(num)) return String(val);
+      const sign = num < 0 ? '-' : '';
+      const abs = Math.abs(num);
+      return `${sign}${abs.toLocaleString('en-US', {maximumFractionDigits:2})} ${unit}`;
     }
 
     function renderResults(list){
+      currentResults = list;
+      loadedCount = 0;
       resultsEl.innerHTML = "";
+      window.removeEventListener('scroll', handleScroll);
+      loadMore();
+      window.addEventListener('scroll', handleScroll);
+    }
+
+    function handleScroll(){
+      if(loading) return;
+      if(window.innerHeight + window.scrollY >= document.body.offsetHeight - 100){
+        loadMore();
+      }
+    }
+
+    function loadMore(){
+      if(loadedCount >= currentResults.length) return;
+      loading = true;
+      resultsEl.querySelectorAll('.card.skeleton').forEach(el=>el.remove());
       const frag = document.createDocumentFragment();
-      for(const r of list){
+      const chunk = currentResults.slice(loadedCount, loadedCount + PAGE_SIZE);
+      for(const r of chunk){
         const card = document.createElement('div');
         card.className = 'card';
         const cik = String(r.CIK||"").trim();
@@ -414,6 +543,22 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
         frag.appendChild(card);
       }
       resultsEl.appendChild(frag);
+      loadedCount += chunk.length;
+
+      const remaining = currentResults.length - loadedCount;
+      if(remaining > 0){
+        const pfrag = document.createDocumentFragment();
+        const count = Math.min(PAGE_SIZE, remaining);
+        for(let i=0;i<count;i++){
+          const ph = document.createElement('div');
+          ph.className = 'card skeleton';
+          pfrag.appendChild(ph);
+        }
+        resultsEl.appendChild(pfrag);
+      }else{
+        window.removeEventListener('scroll', handleScroll);
+      }
+      loading = false;
     }
 
     function openModal(cik){
@@ -502,6 +647,56 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       document.body.style.overflow='hidden';
     }
 
+    function toggleChart(cik, key, item){
+      if(activeChart && activeChart.key === key){
+        hideActiveChart();
+        return;
+      }
+      hideActiveChart();
+      const years = Array.from((yearsByCIK.get(cik)||new Set())).sort();
+      const labels = [];
+      const data = [];
+      let nonZeroCount = 0;
+      for(const y of years){
+        const rec = finByCIKYear.get(cik+'|'+y);
+        const raw = rec ? fmt(rec[key]).trim() : '';
+        const num = Number(String(raw).replace(/,/g,''));
+        if(raw === '' || Number.isNaN(num)) continue;
+        labels.push(y);
+        data.push(num);
+        if(num !== 0) nonZeroCount++;
+      }
+      if(nonZeroCount < 2) return;
+      const grid = item.closest('.fin-grid');
+      if(!grid) return;
+      const chartCard = document.createElement('div');
+      chartCard.className = 'chart-card';
+      chartCard.style.gridColumn = '1 / -1';
+      const canvas = document.createElement('canvas');
+      chartCard.appendChild(canvas);
+      const children = Array.from(grid.children);
+      const idx = children.indexOf(item);
+      const cols = getComputedStyle(grid).gridTemplateColumns.split(' ').length || 1;
+      const rowEnd = Math.min(children.length - 1, Math.floor(idx / cols) * cols + cols - 1);
+      const anchor = children[rowEnd];
+      anchor.insertAdjacentElement('afterend', chartCard);
+      const ctx = canvas.getContext('2d');
+      const unit = METRIC_UNITS[key] || 'USD';
+      const chart = new Chart(ctx, {
+        type:'line',
+        data:{ labels, datasets:[{ label: formatKV(key), data, borderColor:'#00aeef', backgroundColor:'rgba(0,174,239,0.2)', tension:0.1 }] },
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{ ticks:{ callback:(v)=>formatAmountPlain(v, unit) }}} }
+      });
+      chartCard.addEventListener('click', (ev)=>{ ev.stopPropagation(); hideActiveChart(); });
+      const container = modal;
+      const listener = (ev)=>{
+        if(ev.target.closest('.chart-card') || ev.target.closest('.fin-item') === item) return;
+        hideActiveChart();
+      };
+      container.addEventListener('click', listener);
+      activeChart = {card: chartCard, chart, key, container, listener};
+    }
+
     function renderYear(cik, year){
       // remove previous fin + links section if present
       const old = modalContent.querySelector('#year-section');
@@ -512,18 +707,66 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       sec.style.marginTop = '16px';
 
       const fin = finByCIKYear.get(cik+'|'+year) || null;
+      const prevYear = String(Number(year) - 1);
+      const prevFin = finByCIKYear.get(cik+'|'+prevYear) || null;
       if(fin){
         const grid = document.createElement('div'); grid.className='fin-grid';
         // show everything except a few metadata keys
-        const omit = new Set(['idpk','CIK','year','EntityRegistrantName','EntityCentralIndexKey','TradingSymbol','EntityIncorporationStateCountryCode','EntityFilerCategory','DocumentType','AmendmentFlag','DocumentPeriodEndDate','DocumentFiscalPeriodFocus','DocumentFiscalYearFocus','CurrentFiscalYearEndDate']);
+        const omit = new Set(['idpk','CIK','year','EntityRegistrantName','EntityCentralIndexKey','TradingSymbol','EntityIncorporationStateCountryCode','EntityFilerCategory','DocumentType','AmendmentFlag','DocumentPeriodEndDate','DocumentFiscalPeriodFocus','DocumentFiscalYearFocus','CurrentFiscalYearEndDate','solvent']);
         for(const [k,v] of Object.entries(fin)){
           if(omit.has(k)) continue;
           const val = fmt(v).trim();
-          const num = Number(val);
+          const num = Number(String(val).replace(/,/g,''));
           const item = document.createElement('div');
           item.className = 'fin-item' + (val === '' ? ' empty' : (!Number.isNaN(num) && num === 0 ? ' zero' : ''));
-          const formatted = formatUSD(val);
-          item.innerHTML = `<div class="k">${formatKV(k)}</div><div class="v">${formatted !== null ? formatted : val}</div>`;
+          const unit = METRIC_UNITS[k] || 'USD';
+          const formatted = formatAmount(val, unit);
+          const sentiment = METRIC_SENTIMENT[k] || 'neutral';
+          let pctHtml = '';
+          if(prevFin && Object.prototype.hasOwnProperty.call(prevFin, k)){
+            const prevRaw = fmt(prevFin[k]).trim();
+            const currNum = num;
+            const prevNum = Number(String(prevRaw).replace(/,/g,''));
+            if(prevRaw !== '' && !Number.isNaN(currNum) && !Number.isNaN(prevNum) && prevNum !== 0){
+              const pct = Math.round((currNum - prevNum) / Math.abs(prevNum) * 100);
+              const absPct = Math.abs(pct);
+              let op = 0.5;
+              if(absPct === 0) op = 0.3;
+              else if(absPct < 10) op = 0.4;
+              const sign = pct > 0 ? '+' : '';
+              let pctColor = '';
+              if(pct !== 0 && (sentiment === 'good' || sentiment === 'bad')){
+                const pctPositive = pct > 0;
+                pctColor = sentiment === 'good'
+                  ? (pctPositive ? 'var(--good)' : 'var(--bad)')
+                  : (pctPositive ? 'var(--bad)' : 'var(--good)');
+              }
+              const colorAttr = pctColor ? `; color:${pctColor}` : '';
+              pctHtml = `<span class="pct" style="opacity:${op}${colorAttr}" title="percentage change relative to previous year">${sign}${pct}%</span>`;
+            }
+          }
+          const amountHTML = formatted !== null ? formatted : val;
+          item.innerHTML = `<div class="k">${formatKV(k)}</div><div class="v"><span class="amt">${amountHTML}</span>${pctHtml}</div>`;
+          if(sentiment !== 'neutral' && !Number.isNaN(num) && num !== 0){
+            const amtPositive = num > 0;
+            const amtColor = sentiment === 'good'
+              ? (amtPositive ? 'var(--good)' : 'var(--bad)')
+              : (amtPositive ? 'var(--bad)' : 'var(--good)');
+            const amtSpan = item.querySelector('.amt');
+            if(amtSpan) amtSpan.style.color = amtColor;
+          }
+          const allYears = Array.from((yearsByCIK.get(cik)||new Set()));
+          const history = [];
+          for(const y of allYears){
+            const rec = finByCIKYear.get(cik+'|'+y);
+            const raw = rec ? fmt(rec[k]).trim() : '';
+            const numv = Number(String(raw).replace(/,/g,''));
+            if(raw !== '' && !Number.isNaN(numv) && numv !== 0) history.push(numv);
+          }
+          if(history.length > 1){
+            item.classList.add('clickable');
+            item.addEventListener('click', (e)=>{ e.stopPropagation(); toggleChart(cik, k, item); });
+          }
           grid.appendChild(item);
         }
         sec.appendChild(grid);
@@ -555,6 +798,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
 
     function closeModal(ev){
       if(ev && ev.target && ev.target.closest && ev.target.closest('.modal')) return;
+      hideActiveChart();
       overlay.classList.remove('show');
       modalContent.innerHTML = "";
       const cb = modal.querySelector('.close-btn');
@@ -567,27 +811,32 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
 
     function doSearch(){
       const query = qEl.value.trim();
+      lastQuery = query;
+      goEl.classList.add('hidden');
       if(!query){
         resultsEl.innerHTML = "";
         statsEl.style.display = "none";
         hero.classList.remove('compact');
+        window.removeEventListener('scroll', handleScroll);
+        currentResults = [];
+        loadedCount = 0;
         return;
       }
       const ranked = DATA.main
         .map(r => ({ rec:r, s:score(r, query) }))
         .filter(x => x.s>0)
         .sort((a,b)=> b.s - a.s)
-        .slice(0,200)
         .map(x=>x.rec);
       renderResults(ranked);
-      statsEl.textContent = `${ranked.length} result(s)`;
+      statsEl.textContent = `${ranked.length} result${ranked.length === 1 ? '' : 's'}`;
       statsEl.style.display = "inline-flex";
       hero.classList.add('compact');
     }
 
-    // Show/hide search button depending on input content; submit on Enter
+    // Show/hide search button depending on input content and last query; submit on Enter
     qEl.addEventListener('input', ()=>{
-      const has = qEl.value.trim().length>0;
+      const value = qEl.value.trim();
+      const has = value.length>0 && value !== lastQuery;
       goEl.classList.toggle('hidden', !has);
     });
     qEl.addEventListener('keydown', (e)=>{
