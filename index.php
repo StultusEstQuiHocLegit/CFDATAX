@@ -334,6 +334,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
         if(activeChart.chart) activeChart.chart.destroy();
         activeChart.card.remove();
         activeChart.container.removeEventListener('click', activeChart.listener);
+        if(activeChart.item) activeChart.item.style.borderColor = '';
         activeChart = null;
       }
     }
@@ -680,6 +681,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       const rowEnd = Math.min(children.length - 1, Math.floor(idx / cols) * cols + cols - 1);
       const anchor = children[rowEnd];
       anchor.insertAdjacentElement('afterend', chartCard);
+      item.style.borderColor = 'var(--blue)';
       const ctx = canvas.getContext('2d');
       const unit = METRIC_UNITS[key] || 'USD';
       const chart = new Chart(ctx, {
@@ -694,7 +696,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
         hideActiveChart();
       };
       container.addEventListener('click', listener);
-      activeChart = {card: chartCard, chart, key, container, listener};
+      activeChart = {card: chartCard, chart, key, container, listener, item};
     }
 
     function renderYear(cik, year){
