@@ -37,12 +37,16 @@ const POLITE_USLEEP               = 200000;  // 0.2s pause between filings
 const POLITE_USLEEP_PAGE          = 300000;  // 0.3s pause between pages
 const MAX_RETRIES                 = 5;
 const BACKOFF_BASE_MS             = 500;
-const RANDOM_COMPANY_SAMPLE_SIZE  = 10;      // change for a different sample size
-const RANDOM_SEED                 = null;    // set integer for reproducible sampling
-const START_YEAR                  = YEAR - 10; // financial history range start
-const MAIN_CSV_FILE               = __DIR__ . '/main.csv';
-const FINANCIAL_CSV_FILE          = __DIR__ . '/financials.csv';
-const REPORTS_CSV_FILE            = __DIR__ . '/reports.csv';
+const RANDOM_COMPANY_SAMPLE_SIZE          = 10;      // change for a different sample size
+const RANDOM_COMPANY_SAMPLE_SIZE_SOLVENT  = 10;
+const RANDOM_SEED                          = null;    // set integer for reproducible sampling
+const START_YEAR                           = YEAR - 10; // financial history range start
+const MAIN_CSV_FILE                        = __DIR__ . '/main.csv';
+const MAIN_CSV_FILE_SOLVENT                = __DIR__ . '/main_solvent.csv';
+const FINANCIAL_CSV_FILE                   = __DIR__ . '/financials.csv';
+const FINANCIAL_CSV_FILE_SOLVENT           = __DIR__ . '/financials_solvent.csv';
+const REPORTS_CSV_FILE                     = __DIR__ . '/reports.csv';
+const REPORTS_CSV_FILE_SOLVENT             = __DIR__ . '/reports_solvent.csv';
 // const ANNUAL_REPORT_DIR           = __DIR__ . '/AnnualReports';
 // const QUARTERLY_REPORT_DIR        = __DIR__ . '/QuarterlyReports';
 const FINANCIAL_FIELD_MAP         = [
@@ -257,19 +261,20 @@ function getCompanyMetadata(string $cik): array {
         }
     }
     return [
-        'exchange'             => $data['exchanges'][0] ?? '',
-        'IndustrySICCode'      => $data['sic'] ?? '',
-        'FiscalYearEnd'        => $data['fye'] ?? '',
+        'CompanyName'         => $data['name'] ?? '',
+        'exchange'            => $data['exchanges'][0] ?? '',
+        'IndustrySICCode'     => $data['sic'] ?? '',
+        'FiscalYearEnd'       => $data['fye'] ?? '',
         'BusinessAddressState' => $addr['state'] ?? '',
         'BusinessAddressZIPCode' => $addr['zip'] ?? '',
-        'BusinessAddressCity'  => $addr['city'] ?? '',
-        'BusinessAddressStreet'=> $streetName,
+        'BusinessAddressCity' => $addr['city'] ?? '',
+        'BusinessAddressStreet' => $streetName,
         'BusinessAddressHouseNumber' => $house,
         'StateOfIncorporation' => $data['stateOfIncorporation'] ?? '',
-        'Website'              => $data['website'] ?? '',
-        'InvestorWebsite'      => $data['investorWebsite'] ?? '',
-        'SIC'                  => $data['sic'] ?? '',
-        'SICDescription'       => $data['sicDescription'] ?? '',
+        'Website'             => $data['website'] ?? '',
+        'InvestorWebsite'     => $data['investorWebsite'] ?? '',
+        'SIC'                 => $data['sic'] ?? '',
+        'SICDescription'      => $data['sicDescription'] ?? '',
     ];
 }
 
@@ -285,9 +290,9 @@ function appendToCsv(string $file, array $row): void {
     fclose($fh);
 }
 
-// Fetch company facts (XBRL data)
-function getCompanyFacts(string $cik): array {
-    if (!$cik) return [];
+// Fetch company facts (XBRL data); returns HTTP status via reference.
+function getCompanyFacts(string $cik, ?int &$status = null): array {
+    if (!$cik) { $status = 0; return []; }
     $cikPadded = str_pad($cik, 10, '0', STR_PAD_LEFT);
     $url = 'https://data.sec.gov/api/xbrl/companyfacts/CIK' . $cikPadded . '.json';
     $status = 0;
@@ -310,13 +315,18 @@ function findFactValue(array $facts, string $concept, int $year) {
     return null;
 }
 
-// Save financial history for a company
-function saveFinancialHistory(string $cik): void {
-    static $idpk = 0;
-    $facts = getCompanyFacts($cik);
-    if (!$facts) return;
+// Save financial history for a company and returns false if company facts are missing.
+function saveFinancialHistory(string $cik, string $file = FINANCIAL_CSV_FILE): bool {
+    static $idpk = [];
+    if (!isset($idpk[$file])) $idpk[$file] = 0;
+    $status = 0;
+    $facts = getCompanyFacts($cik, $status);
+    if ($status !== 200) {
+        return false;
+    }
+    if (!$facts) return true;
     for ($y = START_YEAR; $y <= YEAR; $y++) {
-        $row = ['idpk' => ++$idpk, 'CIK' => $cik, 'year' => $y];
+        $row = ['idpk' => ++$idpk[$file], 'CIK' => $cik, 'year' => $y];
         foreach (FINANCIAL_FIELD_MAP as $col => $concept) {
             $row[$col] = findFactValue($facts, $concept, $y);
         }
@@ -325,9 +335,10 @@ function saveFinancialHistory(string $cik): void {
             if ($row[$col] !== null && $row[$col] !== '') { $hasData = true; break; }
         }
         if ($hasData) {
-            appendToCsv(FINANCIAL_CSV_FILE, $row);
+            appendToCsv($file, $row);
         }
     }
+    return true;
 }
 
 // Fetch recent filings (10-K, 10-Q, etc.) for a company
@@ -386,8 +397,9 @@ function saveAnnualReports(string $cik, array $filings): void {
 */
 
 // Save report links (annual and quarterly) to CSV
-function saveReportLinks(string $cik, array $filings): void {
-    static $idpk = 0;
+function saveReportLinks(string $cik, array $filings, string $file = REPORTS_CSV_FILE): void {
+    static $idpk = [];
+    if (!isset($idpk[$file])) $idpk[$file] = 0;
     $cikTrim = ltrim($cik, '0');
     $byYear = [];
     foreach ($filings as $f) {
@@ -415,7 +427,7 @@ function saveReportLinks(string $cik, array $filings): void {
     }
     foreach ($byYear as $year => $links) {
         $row = [
-            'idpk' => ++$idpk,
+            'idpk' => ++$idpk[$file],
             'CIK' => $cik,
             'year' => $year,
             'AnnualReportLink' => $links['AnnualReportLink'] ?? '',
@@ -424,7 +436,7 @@ function saveReportLinks(string $cik, array $filings): void {
             'QuarterlyReportLinkQ3' => $links['QuarterlyReportLinkQ3'] ?? '',
             'QuarterlyReportLinkQ4' => $links['QuarterlyReportLinkQ4'] ?? '',
         ];
-        appendToCsv(REPORTS_CSV_FILE, $row);
+        appendToCsv($file, $row);
     }
 }
 
@@ -527,9 +539,32 @@ function fetchAllYearHits(string $year): array {
     return $all;
 }
 
+// Fetch list of all CIKs from SEC ticker file for solvent sampling
+function fetchAllCiks(): array {
+    $url = 'https://www.sec.gov/include/ticker.txt';
+    $status = 0;
+    $text = http_get_text($url, $status);
+    if (!$text) return [];
+    $ciks = [];
+    foreach (explode("\n", trim($text)) as $line) {
+        $line = trim($line);
+        if (!$line) continue;
+        if (strpos($line, '|') !== false) {
+            [, $cik] = explode('|', $line, 2);
+        } else {
+            $parts = preg_split('/\s+/', $line);
+            $cik = $parts[1] ?? null;
+        }
+        if ($cik !== null && $cik !== '') {
+            $ciks[] = ltrim($cik, '0');
+        }
+    }
+    return $ciks;
+}
 
 // Process a single EF-TS hit: extract fields, fetch text, parse, write CSV rows.
-function processSingleHit(array $hit): void {
+// Returns true on success, false if company data should be skipped.
+function processSingleHit(array $hit): bool {
     $src = $hit['_source'] ?? [];
     $fld = $hit['fields']  ?? [];
 
@@ -614,16 +649,75 @@ function processSingleHit(array $hit): void {
     // Skip clearly empty/unusable rows
     if (!$row['AccessionNumber'] && !$row['FilingDate']) {
         logmsg("      Skipped: missing accession/date (unexpected schema).");
-        return;
+        return false;
+    }
+
+    if (!saveFinancialHistory((string)$cik)) {
+        logmsg("      Skipped: company facts unavailable for CIK $cik.");
+        return false;
     }
 
     appendToCsv(MAIN_CSV_FILE, $row);
-    saveFinancialHistory((string)$cik);
     $filings = getCompanyFilings((string)$cik);
     // saveAnnualReports((string)$cik, $filings);
     // saveQuarterlyReports((string)$cik, $filings);
     saveReportLinks((string)$cik, $filings);
     usleep(POLITE_USLEEP);
+    return true;
+}
+
+// Process random solvent companies (non-bankrupt) and save their data
+function processSolventCompanies(array $excludeCiks): void {
+    $all = fetchAllCiks();
+    if (empty($all)) {
+        logmsg("No CIK list available for solvent sampling.");
+        return;
+    }
+    $pool = array_values(array_diff($all, $excludeCiks));
+    if (RANDOM_SEED !== null) mt_srand((int)RANDOM_SEED);
+    shuffle($pool);
+    $sample = array_slice($pool, 0, min(RANDOM_COMPANY_SAMPLE_SIZE_SOLVENT, count($pool)));
+    logmsg("Sampled " . count($sample) . " solvent CIKs: " . implode(', ', $sample));
+    $processed = 0;
+    foreach ($sample as $cik) {
+        logmsg("Processing solvent CIK $cik …");
+        $meta = getCompanyMetadata((string)$cik);
+        if (empty($meta)) {
+            logmsg("  Metadata unavailable for CIK $cik");
+        }
+        $row = [
+            'BankruptcyDate' => null,
+            'FilingDate' => null,
+            'FilingType' => null,
+            'BankruptcyChapter' => null,
+            'CourtName' => null,
+            'CaseNumber' => null,
+            'AccessionNumber' => null,
+            'FilingURL' => null,
+            'CIK' => $cik,
+            'CompanyName' => $meta['CompanyName'] ?? '',
+            'exchange' => $meta['exchange'] ?? '',
+            'IndustrySICCode' => $meta['IndustrySICCode'] ?? '',
+            'FiscalYearEnd' => $meta['FiscalYearEnd'] ?? '',
+            'BusinessAddressState' => $meta['BusinessAddressState'] ?? '',
+            'BusinessAddressZIPCode' => $meta['BusinessAddressZIPCode'] ?? '',
+            'BusinessAddressCity' => $meta['BusinessAddressCity'] ?? '',
+            'BusinessAddressStreet' => $meta['BusinessAddressStreet'] ?? '',
+            'BusinessAddressHouseNumber' => $meta['BusinessAddressHouseNumber'] ?? '',
+            'StateOfIncorporation' => $meta['StateOfIncorporation'] ?? '',
+            'Website' => $meta['Website'] ?? '',
+            'InvestorWebsite' => $meta['InvestorWebsite'] ?? '',
+            'SIC' => $meta['SIC'] ?? '',
+            'SICDescription' => $meta['SICDescription'] ?? '',
+        ];
+        appendToCsv(MAIN_CSV_FILE_SOLVENT, $row);
+        saveFinancialHistory((string)$cik, FINANCIAL_CSV_FILE_SOLVENT);
+        $filings = getCompanyFilings((string)$cik);
+        saveReportLinks((string)$cik, $filings, REPORTS_CSV_FILE_SOLVENT);
+        usleep(POLITE_USLEEP);
+        $processed++;
+    }
+    logmsg("Processed $processed solvent company(ies).");
 }
 
 
@@ -706,16 +800,15 @@ foreach ($allHits as $hit) {
 $uniqueCiks = array_keys($byCik);
 logmsg("Filtered to 8-K: $filteredCount hits. Found " . count($uniqueCiks) . " unique companies (CIKs) with 8-K 'bankruptcy' hits in " . YEAR . ".");
 
-// 3) Randomly select up to RANDOM_COMPANY_SAMPLE_SIZE CIKs
+// 3) Randomly process up to RANDOM_COMPANY_SAMPLE_SIZE CIKs, skipping those without company facts
 if (RANDOM_SEED !== null) mt_srand((int)RANDOM_SEED);
 shuffle($uniqueCiks);
-$sampleCiks = array_slice($uniqueCiks, 0, min(RANDOM_COMPANY_SAMPLE_SIZE, count($uniqueCiks)));
+logmsg("Shuffled CIKs; targeting " . RANDOM_COMPANY_SAMPLE_SIZE . " company(ies).");
 
-logmsg("Sampled " . count($sampleCiks) . " CIKs: " . implode(', ', $sampleCiks));
-
-// 4) Process all hits for the sampled companies
 $processed = 0;
-foreach ($sampleCiks as $cik) {
+$selectedCiks = [];
+foreach ($uniqueCiks as $cik) {
+    if ($processed >= RANDOM_COMPANY_SAMPLE_SIZE) break;
     $hits = $byCik[$cik] ?? [];
     // Stable order by filed date
     usort($hits, function ($a, $b) {
@@ -725,13 +818,13 @@ foreach ($sampleCiks as $cik) {
     });
 
     logmsg("Processing CIK $cik with " . count($hits) . " hit(s) …");
-    if (!empty($hits)) {
-        processSingleHit($hits[0]);
+    if (!empty($hits) && processSingleHit($hits[0])) {
         $processed++;
+        $selectedCiks[] = $cik;
     }
 }
-
-logmsg("Done. Processed $processed filing(s) across " . count($sampleCiks) . " companies.");
+processSolventCompanies($uniqueCiks);
+logmsg("Done. Processed $processed filing(s) across " . count($selectedCiks) . " companies.");
 if (!$runningInCli) {
     echo "</pre>";
 }
