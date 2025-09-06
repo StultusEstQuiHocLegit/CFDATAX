@@ -21,9 +21,17 @@ function read_csv_assoc($path){
   return $out;
 }
 
-$main = read_csv_assoc(__DIR__ . '/main.csv');
-$financials = read_csv_assoc(__DIR__ . '/financials.csv');
-$reports = read_csv_assoc(__DIR__ . '/reports.csv');
+$main = array_map(function($r){ $r['solvent'] = false; return $r; }, read_csv_assoc(__DIR__ . '/main.csv'));
+$financials = array_map(function($r){ $r['solvent'] = false; return $r; }, read_csv_assoc(__DIR__ . '/financials.csv'));
+$reports = array_map(function($r){ $r['solvent'] = false; return $r; }, read_csv_assoc(__DIR__ . '/reports.csv'));
+
+$main_solvent = array_map(function($r){ $r['solvent'] = true; return $r; }, read_csv_assoc(__DIR__ . '/main_solvent.csv'));
+$financials_solvent = array_map(function($r){ $r['solvent'] = true; return $r; }, read_csv_assoc(__DIR__ . '/financials_solvent.csv'));
+$reports_solvent = array_map(function($r){ $r['solvent'] = true; return $r; }, read_csv_assoc(__DIR__ . '/reports_solvent.csv'));
+
+$main = array_merge($main, $main_solvent);
+$financials = array_merge($financials, $financials_solvent);
+$reports = array_merge($reports, $reports_solvent);
 
 $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
 ?>
@@ -114,6 +122,17 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08);
       color:var(--muted);
     }
+    .status-dot{
+      display:inline-block;
+      width:.5rem; height:.5rem;
+      border-radius:50%;
+      margin-right:4px;
+      vertical-align:middle;
+      position:relative;
+      top:-.1em;
+    }
+    .status-dot.good{ background:var(--good) }
+    .status-dot.bad{ background:var(--bad) }
     .grid{
       display:grid;
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -378,13 +397,14 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
         card.className = 'card';
         const cik = String(r.CIK||"").trim();
         const sym = symbolByCIK.get(cik) || "";
+        const statusDot = `<span class="status-dot ${r.solvent ? 'good' : 'bad'}" title="${r.solvent ? 'solvent' : 'bankrupt'}"></span>`;
         card.innerHTML = `
           <div class="meta">
             <span class="pill">CIK: ${cik||"-"}</span>
             ${sym ? `<span class="pill">Ticker: ${sym}</span>` : ``}
             ${r.exchange ? `<span class="pill">${fmt(r.exchange)}</span>` : ``}
           </div>
-          <h3>${fmt(r.CompanyName)||"Unknown Company"}</h3>
+          <h3>${statusDot}${fmt(r.CompanyName)||"Unknown Company"}</h3>
           <div class="meta">
             ${r.SICDescription ? `<span>${fmt(r.SICDescription)}</span>`:""}
             ${r.BusinessAddressCity ? `<span> · ${fmt(r.BusinessAddressCity)}${r.BusinessAddressState? ", "+fmt(r.BusinessAddressState):""}</span>`:""}
@@ -402,9 +422,10 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       modalContent.innerHTML = "";
       const title = document.createElement('div');
       title.className = 'title';
+      const statusDot = `<span class="status-dot ${base.solvent ? 'good' : 'bad'}" title="${base.solvent ? 'solvent' : 'bankrupt'}"></span>`;
       title.innerHTML = `
         <div>
-          <h2 style="margin:0 0 2px 0">${fmt(base.CompanyName)||"Company"}</h2>
+          <h2 style="margin:0 0 2px 0">${statusDot}${fmt(base.CompanyName)||"Company"}</h2>
           <div class="meta" style="margin-top:4px">
             <span class="pill">CIK: ${cik}</span>
             ${sym ? `<span class="pill">Ticker: ${sym}</span>`:""}
@@ -442,7 +463,10 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
         }
         const kEl = document.createElement('div'); kEl.className='k'; kEl.textContent = formatKV(k);
         const vEl = document.createElement('div'); vEl.className='v';
-        if(k === 'FilingURL'){
+        if(k === 'solvent'){
+          vEl.textContent = sv;
+          vEl.style.color = v ? 'var(--good)' : 'var(--bad)';
+        } else if(k === 'FilingURL'){
           const a = document.createElement('a');
           a.href = sv; a.textContent = sv; a.target='_blank'; a.rel='noopener';
           a.style.opacity = 0.5;
