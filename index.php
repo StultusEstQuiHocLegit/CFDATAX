@@ -40,7 +40,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>CFDATA</title>
+  <title>TRAMANN CFDATA</title>
   <style>
     :root{
       --bg:#000000;
@@ -53,6 +53,53 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       --violet:#8a2be2;   /* accents */
       --shadow:0 8px 24px rgba(0,0,0,.35);
       --radius:16px;
+      --input-bg:#0b0c10;
+      --border-color:rgba(255,255,255,.08);
+      --btn-bg:linear-gradient(135deg, #1b1c22, #0f0f14);
+      --header-bg:rgba(0,0,0,.5);
+      --card-bg:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      --card-border:rgba(255,255,255,.08);
+      --modal-bg:linear-gradient(180deg, #101119, #0b0c10);
+      --modal-border:rgba(255,255,255,.12);
+      --modal-shadow:0 20px 60px rgba(0,0,0,.55);
+      --fin-bg:rgba(255,255,255,.04);
+      --fin-border:rgba(255,255,255,.08);
+      --year-btn-bg:#0f1015;
+      --year-btn-color:#dfe4ea;
+      --year-btn-active-bg:linear-gradient(135deg, rgba(138,43,226,.25), rgba(0,174,239,.25));
+      --year-btn-active-color:#fff;
+      --close-btn-bg:rgba(255,255,255,.06);
+      --close-btn-border:rgba(255,255,255,.08);
+      --link-card-border:rgba(255,255,255,.12);
+    }
+    body.lightmode{
+      --bg:#ffffff;
+      --card:#f1f3f5;
+      --muted:#606770;
+      --text:#000000;
+      --good:#2ecc71;
+      --bad:#e74c3c;
+      --blue:#0068c9;
+      --violet:#6a1bb4;
+      --shadow:0 8px 24px rgba(0,0,0,.1);
+      --input-bg:#ffffff;
+      --border-color:rgba(0,0,0,.12);
+      --btn-bg:linear-gradient(135deg, #ffffff, #eaeaea);
+      --header-bg:rgba(255,255,255,.7);
+      --card-bg:linear-gradient(180deg, rgba(0,0,0,.04), rgba(0,0,0,.02));
+      --card-border:rgba(0,0,0,.08);
+      --modal-bg:linear-gradient(180deg, #ffffff, #f5f5f5);
+      --modal-border:rgba(0,0,0,.12);
+      --modal-shadow:0 20px 60px rgba(0,0,0,.15);
+      --fin-bg:rgba(0,0,0,.04);
+      --fin-border:rgba(0,0,0,.08);
+      --year-btn-bg:#eaeaea;
+      --year-btn-color:#333;
+      --year-btn-active-bg:linear-gradient(135deg, rgba(138,43,226,.15), rgba(0,174,239,.15));
+      --year-btn-active-color:#000;
+      --close-btn-bg:rgba(0,0,0,.06);
+      --close-btn-border:rgba(0,0,0,.08);
+      --link-card-border:rgba(0,0,0,.12);
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -72,8 +119,8 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     header{
       position:sticky; top:0; z-index:10;
       backdrop-filter:saturate(120%) blur(6px);
-      background:rgba(0,0,0,.5);
-      border-bottom:1px solid rgba(255,255,255,.08);
+      background:var(--header-bg);
+      border-bottom:1px solid var(--border-color);
     }
     .hero{
       min-height:calc(100vh - 60px);
@@ -88,9 +135,9 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     .searchbar input{
       width:min(900px, 100%);
       padding:16px 18px;
-      background:#0b0c10;
+      background:var(--input-bg);
       color:var(--text);
-      border:1px solid rgba(255,255,255,.08);
+      border:1px solid var(--border-color);
       border-radius:var(--radius);
       outline:none;
       font-size:18px;
@@ -104,8 +151,8 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     .btn{
       padding:16px 20px;
       border-radius:var(--radius);
-      border:1px solid rgba(255,255,255,.08);
-      background:linear-gradient(135deg, #1b1c22, #0f0f14);
+      border:1px solid var(--border-color);
+      background:var(--btn-bg);
       color:var(--text);
       font-weight:600;
       letter-spacing:.2px;
@@ -140,8 +187,8 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       padding-bottom:60px;
     }
     .card{
-      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
-      border:1px solid rgba(255,255,255,.08);
+      background:var(--card-bg);
+      border:1px solid var(--card-border);
       border-radius:var(--radius);
       padding:16px;
       box-shadow:var(--shadow);
@@ -186,10 +233,10 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     .modal{
       max-width:1000px; width:min(100%, 1000px);
       max-height:85vh;
-      background:linear-gradient(180deg, #101119, #0b0c10);
-      border:1px solid rgba(255,255,255,.12);
+      background:var(--modal-bg);
+      border:1px solid var(--modal-border);
       border-radius:24px;
-      box-shadow:0 20px 60px rgba(0,0,0,.55);
+      box-shadow:var(--modal-shadow);
       overflow:hidden;
       position:relative;
     }
@@ -203,31 +250,31 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     }
     .years{ display:flex; flex-wrap:wrap; gap:8px; margin-top:36px }
     .year-btn{
-      padding:8px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.1);
-      background:#0f1015; color:#dfe4ea; font-weight:600; cursor:pointer;
+      padding:8px 12px; border-radius:12px; border:1px solid var(--fin-border);
+      background:var(--year-btn-bg); color:var(--year-btn-color); font-weight:600; cursor:pointer;
     }
     .year-btn.active{
-      background:linear-gradient(135deg, rgba(138,43,226,.25), rgba(0,174,239,.25));
+      background:var(--year-btn-active-bg);
       border-color:var(--violet);
-      color:#fff;
+      color:var(--year-btn-active-color);
     }
     .fin-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin-top:12px }
-    .fin-item{ background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px; display:flex; flex-direction:column }
+    .fin-item{ background:var(--fin-bg); border:1px solid var(--fin-border); border-radius:12px; padding:10px; display:flex; flex-direction:column }
     .fin-item .k{ color:var(--muted); font-size:12px }
     .fin-item .v{ font-weight:600; font-size:14px; margin-top:auto; display:flex; align-items:center }
     .fin-item .pct{ font-weight:400; margin-left:auto; text-align:right }
     .fin-item.empty{ opacity: 0.3 }
     .fin-item.zero{ opacity: 0.7 }
     .fin-item.clickable{ cursor:pointer }
-    .chart-card{ background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px; height:260px; }
+    .chart-card{ background:var(--fin-bg); border:1px solid var(--fin-border); border-radius:12px; padding:10px; height:260px; }
     .chart-card canvas{ width:100%; height:100%; }
     .links{
       display:flex; gap:10px; flex-wrap:wrap; margin-top:14px
     }
     .close-btn{
       position:absolute; top:10px; right:10px;
-      background:rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.08);
+      background:var(--close-btn-bg);
+      border:1px solid var(--close-btn-border);
       color:var(--text);
       border-radius:8px;
       padding:4px 8px;
@@ -239,7 +286,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       width:64px; height:64px; display:flex; align-items:center; justify-content:center;
       border-radius:14px;
       background:linear-gradient(180deg, rgba(0,174,239,.12), rgba(138,43,226,.12));
-      border:1px solid rgba(255,255,255,.12);
+      border:1px solid var(--link-card-border);
       font-weight:800; font-size:20px; color:var(--text);
       text-align:center;
       transition:opacity .2s ease, transform .2s ease;
@@ -275,13 +322,37 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
   </div>
 
   <footer>
-    <span style="opacity: 0.3">Stultus est, qui hoc legit.</span>
+    <span style="opacity: 0.3"><a href="#" id="mode-toggle" title="switch between darkmode and lightmode">lightmode</a> | TRAMANN CFDATA | Stultus est, qui hoc legit.</span>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     // --- DATA PLACEHOLDER (replaced differently in index.php vs preview.html) ---
     const DATA = <?php echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+
+    const modeToggle = document.getElementById('mode-toggle');
+    function applyMode(m){
+      document.body.classList.toggle('lightmode', m === 'light');
+      if(modeToggle) modeToggle.textContent = m === 'light' ? 'darkmode' : 'lightmode';
+    }
+    function setMode(m){
+      applyMode(m);
+      const expiry = new Date(Date.now() + 10*365*24*60*60*1000);
+      document.cookie = 'CFDATAViewMode=' + m + '; expires=' + expiry.toUTCString() + '; path=/';
+    }
+    function getMode(){
+      const m = document.cookie.split('; ').find(row => row.startsWith('CFDATAViewMode='));
+      return m ? m.split('=')[1] : null;
+    }
+    const savedMode = getMode();
+    applyMode(savedMode === 'light' ? 'light' : 'dark');
+    if(modeToggle){
+      modeToggle.addEventListener('click', (e)=>{
+        e.preventDefault();
+        const next = document.body.classList.contains('lightmode') ? 'dark' : 'light';
+        setMode(next);
+      });
+    }
 
     // Build quick maps for lookups
     const byCIK = new Map();
@@ -835,7 +906,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       hero.classList.add('compact');
     }
 
-    // Show/hide search button depending on input content and last query; submit on Enter
+    // Show/hide search button depending on input content and last query, submitting on Enter
     qEl.addEventListener('input', ()=>{
       const value = qEl.value.trim();
       const has = value.length>0 && value !== lastQuery;
