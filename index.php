@@ -51,6 +51,8 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       --bad:#e74c3c;      /* red */
       --blue:#00aeef;     /* cristallblue */
       --violet:#8a2be2;   /* accents */
+      --orange:#ff8c00;   /* orange */
+      --brown:#8b4513;    /* brown */
       --shadow:0 8px 24px rgba(0,0,0,.35);
       --radius:16px;
       --input-bg:#0b0c10;
@@ -81,6 +83,8 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       --bad:#e74c3c;
       --blue:#0068c9;
       --violet:#6a1bb4;
+      --orange:#ff8c00;
+      --brown:#8b4513;
       --shadow:0 8px 24px rgba(0,0,0,.1);
       --input-bg:#ffffff;
       --border-color:rgba(0,0,0,.12);
@@ -352,13 +356,31 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       color:var(--year-btn-active-color);
     }
     .fin-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin-top:12px }
+    .fin-grid.compare-grid{ grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
     .fin-item{ background:var(--fin-bg); border:1px solid var(--fin-border); border-radius:12px; padding:10px; display:flex; flex-direction:column }
+    .fin-item.compare{ padding:14px }
     .fin-item .k{ color:var(--muted); font-size:12px }
     .fin-item .v{ font-weight:600; font-size:14px; margin-top:auto; display:flex; align-items:center }
+    .fin-item.compare .v{ display:block }
+    .fin-item.compare .v .amt{ overflow-wrap:anywhere; min-width:0 }
+    .fin-item.compare .v .amt.left{ text-align:left }
+    .fin-item.compare .v .amt.right{ text-align:right }
+    .fin-item.compare .v .sep{ opacity:.5; font-weight:700; text-align:center; padding:0 4px; }
+    .fin-item.compare .variance{opacity:.3; font-size:12px; font-weight:600}
     .fin-item .pct{ font-weight:400; margin-left:auto; text-align:right }
+    .cmp-table{ width:100%; border-collapse:collapse }
+    .cmp-table tr{ display:flex; width:100% }
+    .cmp-table td{ padding:0; vertical-align:bottom }
+    .cmp-table td.amt{ flex:1 }
+    .cmp-table td.amt.left{ text-align:left }
+    .cmp-table td.amt.right{ text-align:right }
+    .cmp-table td.sep{ flex:0 0 14px; text-align:center; vertical-align:middle }
+    .cmp-table .amt-val{ font-weight:600 }
+    .cmp-table .variance{ opacity:.3; font-size:12px; font-weight:600 }
     .fin-item.empty{ opacity: 0.3 }
     .fin-item.zero{ opacity: 0.7 }
-    .fin-item.clickable{ cursor:pointer }
+    .fin-item.clickable{ cursor:pointer; transition:transform .2s ease, box-shadow .2s ease }
+    .fin-item.clickable:hover{ transform:translateY(-2px); box-shadow:var(--shadow) }
     .chart-card{ background:var(--fin-bg); border:1px solid var(--fin-border); border-radius:12px; padding:10px; height:260px; }
     .chart-card canvas{ width:100%; height:100%; }
     .links{
@@ -463,6 +485,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
   <script>
     // --- DATA PLACEHOLDER (replaced differently in index.php vs preview.html) ---
     const DATA = <?php echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
@@ -533,6 +556,13 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     const compareBtn = document.getElementById('compare');
     const compareDividerEl = document.getElementById('compare-divider');
     const modeSwitch = document.getElementById('mode-switch');
+    const status1El = document.getElementById('status1');
+    const status2El = document.getElementById('status2');
+    const year1El = document.getElementById('year1');
+    const year2El = document.getElementById('year2');
+    const year3El = document.getElementById('year3');
+    const year4El = document.getElementById('year4');
+
 
     let currentMode = 'search';
 
@@ -541,10 +571,12 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
         currentMode = 'compare';
         searchbarEl.style.display = 'none';
         comparebarEl.style.display = 'flex';
+        resultsEl.className = 'fin-grid compare-grid';
       }else{
         currentMode = 'search';
         searchbarEl.style.display = 'flex';
         comparebarEl.style.display = 'none';
+        resultsEl.className = 'grid';
       }
       if(compareDividerEl) compareDividerEl.style.display = 'none';
     }
@@ -586,6 +618,51 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     }
     document.querySelectorAll('.dropdown').forEach(setupDropdown);
 
+    function averageFinancials(status, yStart, yEnd){
+      const isSolvent = status === 'solvent';
+      const minYear = Math.min(Number(yStart), Number(yEnd));
+      const maxYear = Math.max(Number(yStart), Number(yEnd));
+      const sums = Object.create(null);
+      const counts = Object.create(null);
+      const sumSquares = Object.create(null);
+      const values = Object.create(null);
+      const skip = new Set(['CIK','year','solvent','TradingSymbol','EntityRegistrantName']);
+      for(const row of DATA.financials){
+        if(!row) continue;
+        if(!!row.solvent !== isSolvent) continue;
+        const ry = Number(row.year);
+        if(!ry || ry < minYear || ry > maxYear) continue;
+        for(const [k,v] of Object.entries(row)){
+          if(skip.has(k)) continue;
+          const num = Number(String(v).replace(/,/g,''));
+          if(!Number.isFinite(num) || num === 0) continue;
+          if(!(k in sums)){
+            sums[k] = 0;
+            counts[k] = 0;
+            sumSquares[k] = 0;
+            values[k] = [];
+          }
+          sums[k] += num;
+          counts[k]++;
+          sumSquares[k] += num * num;
+          values[k].push(num);
+        }
+      }
+      const out = {};
+      for(const k in sums){
+        if(counts[k] > 0){
+          const mean = sums[k] / counts[k];
+          const variance = (sumSquares[k] / counts[k]) - mean * mean;
+          const stdDev = Math.sqrt(variance);
+          const sorted = values[k].slice().sort((a,b)=>a-b);
+          const mid = Math.floor(sorted.length/2);
+          const median = sorted.length % 2 === 0 ? (sorted[mid-1] + sorted[mid]) / 2 : sorted[mid];
+          out[k] = {mean, stdDev, median};
+        }
+      }
+      return out;
+    }
+
     function doCompare(){
       currentMode = 'compare';
       searchbarEl.style.display = 'none';
@@ -593,11 +670,86 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       hero.classList.add('compact');
       if(compareDividerEl) compareDividerEl.style.display = 'none';
       resultsEl.innerHTML = '';
-      for(let i=0;i<10;i++){
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.textContent = 'PLACEHOLDER';
-        resultsEl.appendChild(card);
+      resultsEl.className = 'fin-grid compare-grid';
+      const a = averageFinancials(status1El.dataset.value, year1El.dataset.value, year2El.dataset.value);
+      const b = averageFinancials(status2El.dataset.value, year3El.dataset.value, year4El.dataset.value);
+      const keys = Object.keys(METRIC_SENTIMENT)
+        .filter(k => k in a || k in b);
+      for(const k of keys){
+        if(!(k in a) || !(k in b)) continue;
+        const unit = METRIC_UNITS[k] || 'USD';
+        const v1 = Math.round(a[k].mean);
+        const v2 = Math.round(b[k].mean);
+        const med1 = Math.round(a[k].median);
+        const med2 = Math.round(b[k].median);
+        const sd1 = a[k].stdDev;
+        const sd2 = b[k].stdDev;
+        const item = document.createElement('div');
+        item.className = 'fin-item compare clickable';
+        const kDiv = document.createElement('div');
+        kDiv.className = 'k';
+        kDiv.innerHTML = `<span title="expected values">μ</span> ${formatKV(k)}`;
+        item.appendChild(kDiv);
+        const vDiv = document.createElement('div');
+        vDiv.className = 'v';
+        const table = document.createElement('table');
+        table.className = 'cmp-table';
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td');
+        td1.className = 'amt left';
+        const amtSpan1 = document.createElement('span');
+        amtSpan1.className = 'amt-val';
+        amtSpan1.innerHTML = formatAmount(v1, unit);
+        td1.appendChild(amtSpan1);
+        const sdDiv1 = document.createElement('div');
+        sdDiv1.className = 'variance';
+        sdDiv1.innerHTML = `(<span title="standard deviation">σ</span>: ${sd1.toFixed(2)})`;
+        sdDiv1.style.color = 'var(--text)';
+        td1.appendChild(sdDiv1);
+        const tdSep = document.createElement('td');
+        tdSep.className = 'sep';
+        tdSep.textContent = '|';
+        const td2 = document.createElement('td');
+        td2.className = 'amt right';
+        const amtSpan2 = document.createElement('span');
+        amtSpan2.className = 'amt-val';
+        amtSpan2.innerHTML = formatAmount(v2, unit);
+        td2.appendChild(amtSpan2);
+        const sdDiv2 = document.createElement('div');
+        sdDiv2.className = 'variance';
+        sdDiv2.innerHTML = `(<span title="standard deviation">σ</span>: ${sd2.toFixed(2)})`;
+        sdDiv2.style.color = 'var(--text)';
+        td2.appendChild(sdDiv2);
+        tr.appendChild(td1);
+        tr.appendChild(tdSep);
+        tr.appendChild(td2);
+        table.appendChild(tr);
+        vDiv.appendChild(table);
+        item.appendChild(vDiv);
+        const sentiment = METRIC_SENTIMENT[k] || 'neutral';
+        if(sentiment !== 'neutral'){
+          const applyColor = (span,val)=>{
+            const pos = val > 0;
+            const color = sentiment === 'good'
+              ? (pos ? 'var(--good)' : 'var(--bad)')
+              : (pos ? 'var(--bad)' : 'var(--good)');
+            span.style.color = color;
+          };
+          if(v1 !== 0) applyColor(amtSpan1, v1);
+          if(v2 !== 0) applyColor(amtSpan2, v2);
+        }
+        const meta = {
+          status1: status1El.dataset.value,
+          yStart1: year1El.dataset.value,
+          yEnd1: year2El.dataset.value,
+          status2: status2El.dataset.value,
+          yStart2: year3El.dataset.value,
+          yEnd2: year4El.dataset.value
+        };
+        item.addEventListener('click', ()=>{
+          openCompareDetail(k, v1, med1, sd1, v2, med2, sd2, meta);
+        });
+        resultsEl.appendChild(item);
       }
       statsEl.style.display = 'none';
     }
@@ -930,6 +1082,297 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       document.body.style.overflow='hidden';
     }
 
+    function openCompareDetail(key, v1, med1, sd1, v2, med2, sd2, meta){
+      hideActiveChart();
+      modalContent.innerHTML = "";
+      const title = document.createElement('div');
+      title.className = 'title';
+      title.innerHTML = `<h2 style="margin:0 0 16px 0"><span title="expected values">μ</span> ${formatKV(key)}</h2>`;
+      modalContent.appendChild(title);
+
+      const existingClose = modal.querySelector('.close-btn');
+      if(existingClose) existingClose.remove();
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'close-btn';
+      closeBtn.innerHTML = '<strong>X</strong>';
+      closeBtn.title = 'close';
+      closeBtn.addEventListener('click', () => closeModal());
+      modal.appendChild(closeBtn);
+
+      const table = document.createElement('table');
+      table.className = 'cmp-table';
+      const tr = document.createElement('tr');
+      const unit = METRIC_UNITS[key] || 'USD';
+      const td1 = document.createElement('td');
+      td1.className = 'amt left';
+      const amtSpan1 = document.createElement('span');
+      amtSpan1.className = 'amt-val';
+      amtSpan1.innerHTML = formatAmount(v1, unit);
+      td1.appendChild(amtSpan1);
+      const medDiv1 = document.createElement('div');
+      medDiv1.className = 'variance';
+      medDiv1.innerHTML = `<span class="median-label">(median: </span><span class="median-val">${formatAmount(med1, unit)}</span><span class="median-label">)</span>`;
+      const medSpan1 = medDiv1.querySelector('.median-val');
+      const medLabels1 = medDiv1.querySelectorAll('.median-label');
+      medLabels1.forEach(span => span.style.opacity = '0.5');
+      td1.appendChild(medDiv1);
+      const sdDiv1 = document.createElement('div');
+      sdDiv1.className = 'variance';
+      sdDiv1.innerHTML = `(<span title="standard deviation">σ</span>: ${sd1.toFixed(2)})`;
+      td1.appendChild(sdDiv1);
+      const tdSep = document.createElement('td');
+      tdSep.className = 'sep';
+      tdSep.textContent = '|';
+      const td2 = document.createElement('td');
+      td2.className = 'amt right';
+      const amtSpan2 = document.createElement('span');
+      amtSpan2.className = 'amt-val';
+      amtSpan2.innerHTML = formatAmount(v2, unit);
+      td2.appendChild(amtSpan2);
+      const medDiv2 = document.createElement('div');
+      medDiv2.className = 'variance';
+      medDiv2.innerHTML = `<span class="median-label">(median: </span><span class="median-val">${formatAmount(med2, unit)}</span><span class="median-label">)</span>`;
+      const medSpan2 = medDiv2.querySelector('.median-val');
+      const medLabels2 = medDiv2.querySelectorAll('.median-label');
+      medLabels2.forEach(span => span.style.opacity = '0.5');
+      td2.appendChild(medDiv2);
+      const sdDiv2 = document.createElement('div');
+      sdDiv2.className = 'variance';
+      sdDiv2.innerHTML = `(<span title="standard deviation">σ</span>: ${sd2.toFixed(2)})`;
+      td2.appendChild(sdDiv2);
+      tr.appendChild(td1);
+      tr.appendChild(tdSep);
+      tr.appendChild(td2);
+      table.appendChild(tr);
+      modalContent.appendChild(table);
+
+      const chartTypeWrap = document.createElement('div');
+      chartTypeWrap.className = 'years';
+      chartTypeWrap.style.marginTop = '40px';
+      chartTypeWrap.style.marginBottom = '16px';
+      const candleBtn = document.createElement('button');
+      candleBtn.className = 'year-btn active';
+      candleBtn.textContent = 'candles';
+      const barBtn = document.createElement('button');
+      barBtn.className = 'year-btn';
+      barBtn.textContent = 'bars';
+      chartTypeWrap.appendChild(candleBtn);
+      chartTypeWrap.appendChild(barBtn);
+      modalContent.appendChild(chartTypeWrap);
+
+      const chartCard = document.createElement('div');
+      chartCard.className = 'chart-card';
+      chartCard.style.marginTop = '0';
+      const canvas = document.createElement('canvas');
+      chartCard.appendChild(canvas);
+      modalContent.appendChild(chartCard);
+      const labels = [`${meta.status1}, ${meta.yStart1}-${meta.yEnd1}`, `${meta.status2}, ${meta.yStart2}-${meta.yEnd2}`];
+      const candleData = [
+        {x: labels[0], o: v1, c: v1, h: v1 + sd1, l: v1 - sd1},
+        {x: labels[1], o: v2, c: v2, h: v2 + sd2, l: v2 - sd2}
+      ];
+      const linkColor = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim();
+      const expectedDataset = {label:'expected value μ', data:[v1, v2], backgroundColor:[linkColor, linkColor]};
+      const candleDataset = {
+        label:'standard deviation σ',
+        type:'candlestick',
+        data: candleData,
+        borderColor: linkColor,
+        borderWidth: 2,
+        color:{up: linkColor, down: linkColor, unchanged: linkColor},
+        parsing: false
+      };
+      const wickCaps = {
+        id: 'wickCaps',
+        afterDatasetsDraw(chart){
+          const idx = chart.data.datasets.findIndex(ds => ds.type === 'candlestick');
+          if(idx === -1) return;
+          const dataset = chart.data.datasets[idx];
+          const meta = chart.getDatasetMeta(idx);
+          const yScale = chart.scales.y;
+          const ctx = chart.ctx;
+          ctx.save();
+          ctx.strokeStyle = linkColor;
+          ctx.lineWidth = 2;
+          meta.data.forEach((bar, i)=>{
+            const x = bar.x;
+            const yHigh = yScale.getPixelForValue(dataset.data[i].h);
+            const yLow = yScale.getPixelForValue(dataset.data[i].l);
+            const cap = 15;
+            ctx.beginPath();
+            ctx.moveTo(x, yHigh);
+            ctx.lineTo(x, yLow);
+            ctx.moveTo(x - cap, yHigh);
+            ctx.lineTo(x + cap, yHigh);
+            ctx.moveTo(x - cap, yLow);
+            ctx.lineTo(x + cap, yLow);
+            ctx.stroke();
+          });
+          ctx.restore();
+        }
+      };
+      const ctx = canvas.getContext('2d');
+      let candleMax = Math.max(v1 + sd1, v2 + sd2);
+      let candleMin = Math.min(0, v1 - sd1, v2 - sd2);
+      if(candleMax === candleMin){
+        candleMax = candleMax === 0 ? 1 : candleMax * 1.1;
+        candleMin = 0;
+      }
+      let barMax = Math.max(v1, v2);
+      let barMin = Math.min(0, v1, v2);
+      if(barMax === barMin){
+        barMax = barMax === 0 ? 1 : barMax * 1.1;
+        barMin = 0;
+      }
+      const chart = new Chart(ctx, {
+        type:'bar',
+        data:{
+          labels,
+          datasets:[expectedDataset, candleDataset]
+        },
+        options:{
+          responsive:true,
+          maintainAspectRatio:false,
+          plugins:{legend:{display:false}},
+          scales:{y:{min:candleMin, max:candleMax, ticks:{callback:(v)=>formatAmountPlain(v, unit)}}}
+        },
+        plugins:[wickCaps]
+      });
+
+      const showCandles = () => {
+        chart.config.data.datasets = [expectedDataset, candleDataset];
+        if(!chart.config.plugins.includes(wickCaps)) chart.config.plugins.push(wickCaps);
+        chart.options.scales.y.min = candleMin;
+        chart.options.scales.y.max = candleMax;
+        chart.update();
+      };
+      const showBars = () => {
+        chart.config.data.datasets = [expectedDataset];
+        chart.config.plugins = chart.config.plugins.filter(p=>p!==wickCaps);
+        chart.options.scales.y.min = barMin;
+        chart.options.scales.y.max = barMax;
+        chart.update();
+      };
+      candleBtn.addEventListener('click', () => {
+        barBtn.classList.remove('active');
+        candleBtn.classList.add('active');
+        showCandles();
+      });
+      barBtn.addEventListener('click', () => {
+        candleBtn.classList.remove('active');
+        barBtn.classList.add('active');
+        showBars();
+      });
+
+      if(meta.yStart1 !== meta.yEnd1 || meta.yStart2 !== meta.yEnd2){
+        const timelineCard = document.createElement('div');
+        timelineCard.className = 'chart-card';
+        timelineCard.style.marginTop = '20px';
+        const timelineCanvas = document.createElement('canvas');
+        timelineCard.appendChild(timelineCanvas);
+        modalContent.appendChild(timelineCard);
+
+        const brownColor = getComputedStyle(document.documentElement).getPropertyValue('--brown').trim();
+        const orangeColor = getComputedStyle(document.documentElement).getPropertyValue('--orange').trim();
+
+        const startYear = Math.min(meta.yStart1, meta.yEnd1, meta.yStart2, meta.yEnd2);
+        const endYear = Math.max(meta.yStart1, meta.yEnd1, meta.yStart2, meta.yEnd2);
+        const min1 = Math.min(meta.yStart1, meta.yEnd1);
+        const max1 = Math.max(meta.yStart1, meta.yEnd1);
+        const min2 = Math.min(meta.yStart2, meta.yEnd2);
+        const max2 = Math.max(meta.yStart2, meta.yEnd2);
+
+        const series1 = {};
+        const series2 = {};
+        const isSolvent1 = meta.status1 === 'solvent';
+        const isSolvent2 = meta.status2 === 'solvent';
+
+        for(const row of DATA.financials){
+          if(!row) continue;
+          const ry = Number(row.year);
+          if(!ry || ry < startYear || ry > endYear) continue;
+          const raw = row[key];
+          if(raw === undefined) continue;
+          const val = Number(String(raw).replace(/,/g,''));
+          if(!Number.isFinite(val) || val === 0) continue;
+          if(!!row.solvent === isSolvent1 && ry >= min1 && ry <= max1){
+            if(!(ry in series1)) series1[ry] = {sum:0,count:0};
+            series1[ry].sum += val;
+            series1[ry].count++;
+          }
+          if(!!row.solvent === isSolvent2 && ry >= min2 && ry <= max2){
+            if(!(ry in series2)) series2[ry] = {sum:0,count:0};
+            series2[ry].sum += val;
+            series2[ry].count++;
+          }
+        }
+
+        const labels2 = [];
+        const d1 = [];
+        const d2 = [];
+        for(let y=startYear; y<=endYear; y++){
+          labels2.push(String(y));
+          d1.push(series1[y] ? series1[y].sum/series1[y].count : null);
+          d2.push(series2[y] ? series2[y].sum/series2[y].count : null);
+        }
+
+        const values = d1.concat(d2).filter(v => v !== null);
+        let maxLine = Math.max(...values);
+        let minLine = Math.min(0, ...values);
+        if(values.length === 0 || maxLine === minLine){
+          maxLine = maxLine === 0 ? 1 : maxLine * 1.1;
+          minLine = 0;
+        }
+
+        new Chart(timelineCanvas.getContext('2d'), {
+          type:'line',
+          data:{
+            labels:labels2,
+            datasets:[
+              {label:`${meta.status1}, ${meta.yStart1}-${meta.yEnd1}`, data:d1, borderColor:orangeColor, backgroundColor:orangeColor, spanGaps:false, fill:false},
+              {label:`${meta.status2}, ${meta.yStart2}-${meta.yEnd2}`, data:d2, borderColor:brownColor, backgroundColor:brownColor, spanGaps:false, fill:false}
+            ]
+          },
+          options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            scales:{y:{min:minLine, max:maxLine, ticks:{callback:(v)=>formatAmountPlain(v, unit)}}}
+          }
+        });
+      }
+
+
+      const info = document.createElement('div');
+      info.style.marginTop = '48px';
+      info.style.opacity = '0.3';
+      info.innerHTML = `(comparison: <span class="dot ${meta.status1==='solvent'?'green':'red'}"></span>&thinsp;${meta.status1}, ${meta.yStart1} to ${meta.yEnd1} | <span class="dot ${meta.status2==='solvent'?'green':'red'}"></span>&thinsp;${meta.status2}, ${meta.yStart2} to ${meta.yEnd2})`;
+      modalContent.appendChild(info);
+
+      const sentiment = METRIC_SENTIMENT[key] || 'neutral';
+      if(sentiment !== 'neutral'){
+        const applyColor = (span,val)=>{
+          const pos = val > 0;
+          const color = sentiment === 'good'
+            ? (pos ? 'var(--good)' : 'var(--bad)')
+            : (pos ? 'var(--bad)' : 'var(--good)');
+          span.style.color = color;
+        };
+        if(v1 !== 0) applyColor(amtSpan1, v1);
+        if(v2 !== 0) applyColor(amtSpan2, v2);
+        if(med1 !== 0){
+          applyColor(medSpan1, med1);
+          medLabels1.forEach(span => applyColor(span, med1));
+        }
+        if(med2 !== 0){
+          applyColor(medSpan2, med2);
+          medLabels2.forEach(span => applyColor(span, med2));
+        }
+      }
+
+      overlay.classList.add('show');
+      document.body.style.overflow='hidden';
+    }
+
     function toggleChart(cik, key, item){
       if(activeChart && activeChart.key === key){
         hideActiveChart();
@@ -1097,6 +1540,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       const query = qEl.value.trim();
       lastQuery = query;
       goEl.classList.add('hidden');
+      resultsEl.className = 'grid';
       if(!query){
         resultsEl.innerHTML = "";
         statsEl.style.display = "none";
