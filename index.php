@@ -123,17 +123,22 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       border-bottom:1px solid var(--border-color);
     }
     .hero{
+      position:relative;
       min-height:calc(100vh - 60px);
-      display:flex; align-items:center; justify-content:center;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
       transition: min-height .3s ease;
     }
-    .hero.compact{min-height:auto; justify-content:flex-start}
+    .hero.compact{min-height:auto; justify-content:flex-start; padding-left:40px}
     .searchbar{
       width:100%;
-      display:flex; align-items:center; justify-content:center; gap:10px;
+      max-width:900px;
+      display:flex;
+      align-items:center;
+      gap:10px;
     }
     .searchbar input{
-      width:min(900px, 100%);
+      flex:1;
+      width:100%;
       padding:16px 18px;
       background:var(--input-bg);
       color:var(--text);
@@ -148,6 +153,94 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       border-color:var(--violet);
       box-shadow:0 0 0 4px rgba(138,43,226,.25);
     }
+    .swap-btn{
+      padding:8px 12px;
+      border-radius:var(--radius);
+      border:1px solid var(--border-color);
+      background:var(--btn-bg);
+      color:var(--text);
+      cursor:pointer;
+      box-shadow:var(--shadow);
+      transition:transform .06s ease, opacity .2s ease, border .2s ease;
+    }
+    .swap-btn:hover{opacity:.9}
+    .swap-btn:active{transform:translateY(1px)}
+    #mode-switch{
+      position:absolute; left:0; top:50%; transform:translateY(-50%);
+      display:none;
+    }
+    .hero.compact #mode-switch{display:block}
+    .compare-divider{
+      width:50%;
+      margin:74px auto;
+      display:flex;
+      align-items:center;
+      color:var(--muted);
+    }
+    .compare-divider::before,
+    .compare-divider::after{
+      content:"";
+      flex:1;
+      height:1px;
+      background:var(--text);
+      opacity:.3;
+    }
+    .compare-divider::before{margin-right:10px}
+    .compare-divider::after{margin-left:10px}
+    .comparebar{
+      display:flex; align-items:center; justify-content:center; flex-wrap:wrap;
+      row-gap:10px;
+    }
+    .hero.compact .comparebar{justify-content:flex-start}
+    .comparebar .with-text{margin:0 10px; opacity:.5}
+    .comparebar .sep-text,
+    .comparebar .to-text{opacity:.5}
+    .comparebar button.btn{margin-left:10px}
+    .compare-group{
+      display:flex; align-items:center; gap:10px;
+      padding:6px 10px;
+      border:1px solid var(--border-color);
+      border-radius:var(--radius);
+    }
+    .dropdown{position:relative}
+    .dropdown .selected{
+      padding:8px 12px;
+      border:1px solid var(--border-color);
+      border-radius:var(--radius);
+      background:var(--input-bg);
+      color:var(--text);
+      cursor:pointer;
+      display:flex; align-items:center; gap:6px;
+      white-space:nowrap;
+      transition:opacity .2s ease, border .2s ease;
+    }
+    .dropdown .selected:hover{opacity:.9}
+    .dropdown .options{
+      position:absolute; top:calc(100% + 4px); left:0;
+      background:var(--card);
+      border:1px solid var(--border-color);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      display:none; flex-direction:column;
+      z-index:5;
+      max-height:176px;
+      overflow-y:auto;
+    }
+    .dropdown.open .options{display:flex}
+    .dropdown .option{
+      padding:8px 12px;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      gap:6px;
+      white-space:nowrap;
+    }
+    .dropdown .option:hover{background:var(--btn-bg)}
+    .status-dropdown .selected,
+    .status-dropdown .options{min-width:110px;}
+    .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+    .dot.green{background:var(--good)}
+    .dot.red{background:var(--bad)}
     .btn{
       padding:16px 20px;
       border-radius:var(--radius);
@@ -302,9 +395,53 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
   <header>
     <div class="wrap">
       <div class="hero" id="hero">
-        <div class="searchbar">
+        <button id="mode-switch" class="swap-btn" title="switch between searching companies and making mass comparisons">⇅</button>
+        <div class="searchbar" id="searchbar">
           <input id="q" type="search" placeholder="search..." autocomplete="off" autofocus />
           <button id="go" class="btn hidden" title="search">search</button>
+        </div>
+        <div class="compare-divider" id="compare-divider"><span>or</span></div>
+        <div class="comparebar" id="comparebar">
+          <div class="compare-group">
+            <div class="dropdown status-dropdown" id="status1" data-value="bankrupt">
+              <div class="selected"><span class="dot red"></span><span>bankrupt</span></div>
+              <div class="options">
+                <div class="option" data-value="bankrupt"><span class="dot red"></span>bankrupt</div>
+                <div class="option" data-value="solvent"><span class="dot green"></span>solvent</div>
+              </div>
+            </div>
+            <span class="sep-text">|</span>
+            <div class="dropdown year-dropdown" id="year1" data-value="2024">
+              <div class="selected">2024</div>
+              <div class="options"></div>
+            </div>
+            <span class="to-text">to</span>
+            <div class="dropdown year-dropdown" id="year2" data-value="2024">
+              <div class="selected">2024</div>
+              <div class="options"></div>
+            </div>
+          </div>
+          <span class="with-text">with</span>
+          <div class="compare-group">
+            <div class="dropdown status-dropdown" id="status2" data-value="solvent">
+              <div class="selected"><span class="dot green"></span><span>solvent</span></div>
+              <div class="options">
+                <div class="option" data-value="bankrupt"><span class="dot red"></span>bankrupt</div>
+                <div class="option" data-value="solvent"><span class="dot green"></span>solvent</div>
+              </div>
+            </div>
+            <span class="sep-text">|</span>
+            <div class="dropdown year-dropdown" id="year3" data-value="2024">
+              <div class="selected">2024</div>
+              <div class="options"></div>
+            </div>
+            <span class="to-text">to</span>
+            <div class="dropdown year-dropdown" id="year4" data-value="2024">
+              <div class="selected">2024</div>
+              <div class="options"></div>
+            </div>
+          </div>
+          <button id="compare" class="btn" title="compare">compare</button>
         </div>
       </div>
     </div>
@@ -391,6 +528,80 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     const overlay = document.getElementById('overlay');
     const modal = document.getElementById('modal');
     const modalContent = modal.querySelector('.modal-content');
+    const searchbarEl = document.getElementById('searchbar');
+    const comparebarEl = document.getElementById('comparebar');
+    const compareBtn = document.getElementById('compare');
+    const compareDividerEl = document.getElementById('compare-divider');
+    const modeSwitch = document.getElementById('mode-switch');
+
+    let currentMode = 'search';
+
+    function switchMode(){
+      if(currentMode === 'search'){
+        currentMode = 'compare';
+        searchbarEl.style.display = 'none';
+        comparebarEl.style.display = 'flex';
+      }else{
+        currentMode = 'search';
+        searchbarEl.style.display = 'flex';
+        comparebarEl.style.display = 'none';
+      }
+      if(compareDividerEl) compareDividerEl.style.display = 'none';
+    }
+    if(modeSwitch) modeSwitch.addEventListener('click', switchMode);
+
+    function populateYearDropdown(dd){
+      const opts = dd.querySelector('.options');
+      if(!opts) return;
+      for(let y=2024; y>=2000; y--){
+        const div = document.createElement('div');
+        div.className='option';
+        div.dataset.value=String(y);
+        div.textContent=String(y);
+        opts.appendChild(div);
+      }
+    }
+
+    function setupDropdown(dd){
+      const selected = dd.querySelector('.selected');
+      const options = dd.querySelector('.options');
+      if(dd.classList.contains('year-dropdown')) populateYearDropdown(dd);
+      selected.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        document.querySelectorAll('.dropdown.open').forEach(other=>{
+          if(other!==dd) other.classList.remove('open');
+        });
+        dd.classList.toggle('open');
+      });
+      options.addEventListener('click', (e)=>{
+        const opt = e.target.closest('.option');
+        if(!opt) return;
+        selected.innerHTML = opt.innerHTML;
+        dd.dataset.value = opt.dataset.value;
+        dd.classList.remove('open');
+      });
+      document.addEventListener('click', (e)=>{
+        if(!dd.contains(e.target)) dd.classList.remove('open');
+      });
+    }
+    document.querySelectorAll('.dropdown').forEach(setupDropdown);
+
+    function doCompare(){
+      currentMode = 'compare';
+      searchbarEl.style.display = 'none';
+      comparebarEl.style.display = 'flex';
+      hero.classList.add('compact');
+      if(compareDividerEl) compareDividerEl.style.display = 'none';
+      resultsEl.innerHTML = '';
+      for(let i=0;i<10;i++){
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.textContent = 'PLACEHOLDER';
+        resultsEl.appendChild(card);
+      }
+      statsEl.style.display = 'none';
+    }
+    if(compareBtn) compareBtn.addEventListener('click', doCompare);
 
     const PAGE_SIZE = 50;
     let currentResults = [];
@@ -890,6 +1101,9 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
         resultsEl.innerHTML = "";
         statsEl.style.display = "none";
         hero.classList.remove('compact');
+        searchbarEl.style.display = 'flex';
+        comparebarEl.style.display = 'flex';
+        if(compareDividerEl) compareDividerEl.style.display = 'block';
         window.removeEventListener('scroll', handleScroll);
         currentResults = [];
         loadedCount = 0;
@@ -904,6 +1118,10 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       statsEl.textContent = `${ranked.length} result${ranked.length === 1 ? '' : 's'}`;
       statsEl.style.display = "inline-flex";
       hero.classList.add('compact');
+      currentMode = 'search';
+      searchbarEl.style.display = 'flex';
+      comparebarEl.style.display = 'none';
+      if(compareDividerEl) compareDividerEl.style.display = 'none';
     }
 
     // Show/hide search button depending on input content and last query, submitting on Enter
