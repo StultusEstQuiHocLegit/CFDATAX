@@ -225,12 +225,18 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       border:1px solid var(--border-color);
       border-radius:var(--radius);
       box-shadow:var(--shadow);
-      display:none; flex-direction:column;
+      display:none;
       z-index:5;
+      overflow:hidden;
+    }
+    .dropdown .options-scroll{
+      display:flex;
+      flex-direction:column;
       max-height:176px;
+      overflow:hidden;
       overflow-y:auto;
     }
-    .dropdown.open .options{display:flex}
+    .dropdown.open .options{display:block}
     .dropdown .option{
       padding:8px 12px;
       cursor:pointer;
@@ -428,19 +434,21 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
             <div class="dropdown status-dropdown" id="status1" data-value="bankrupt">
               <div class="selected"><span class="dot red"></span><span>bankrupt</span></div>
               <div class="options">
-                <div class="option" data-value="bankrupt"><span class="dot red"></span>bankrupt</div>
-                <div class="option" data-value="solvent"><span class="dot green"></span>solvent</div>
+                <div class="options-scroll">
+                  <div class="option" data-value="bankrupt"><span class="dot red"></span>bankrupt</div>
+                  <div class="option" data-value="solvent"><span class="dot green"></span>solvent</div>
+                </div>
               </div>
             </div>
             <span class="sep-text">|</span>
             <div class="dropdown year-dropdown" id="year1" data-value="2024">
               <div class="selected">2024</div>
-              <div class="options"></div>
+              <div class="options"><div class="options-scroll"></div></div>
             </div>
             <span class="to-text">to</span>
             <div class="dropdown year-dropdown" id="year2" data-value="2024">
               <div class="selected">2024</div>
-              <div class="options"></div>
+              <div class="options"><div class="options-scroll"></div></div>
             </div>
           </div>
           <span class="with-text">with</span>
@@ -448,19 +456,21 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
             <div class="dropdown status-dropdown" id="status2" data-value="solvent">
               <div class="selected"><span class="dot green"></span><span>solvent</span></div>
               <div class="options">
-                <div class="option" data-value="bankrupt"><span class="dot red"></span>bankrupt</div>
-                <div class="option" data-value="solvent"><span class="dot green"></span>solvent</div>
+                <div class="options-scroll">
+                  <div class="option" data-value="bankrupt"><span class="dot red"></span>bankrupt</div>
+                  <div class="option" data-value="solvent"><span class="dot green"></span>solvent</div>
+                </div>
               </div>
             </div>
             <span class="sep-text">|</span>
             <div class="dropdown year-dropdown" id="year3" data-value="2024">
               <div class="selected">2024</div>
-              <div class="options"></div>
+              <div class="options"><div class="options-scroll"></div></div>
             </div>
             <span class="to-text">to</span>
             <div class="dropdown year-dropdown" id="year4" data-value="2024">
               <div class="selected">2024</div>
-              <div class="options"></div>
+              <div class="options"><div class="options-scroll"></div></div>
             </div>
           </div>
           <button id="compare" class="btn" title="compare">compare</button>
@@ -581,7 +591,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     if(modeSwitch) modeSwitch.addEventListener('click', switchMode);
 
     function populateYearDropdown(dd){
-      const opts = dd.querySelector('.options');
+      const opts = dd.querySelector('.options-scroll');
       if(!opts) return;
       for(let y=2024; y>=2000; y--){
         const div = document.createElement('div');
@@ -594,7 +604,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
 
     function setupDropdown(dd){
       const selected = dd.querySelector('.selected');
-      const options = dd.querySelector('.options');
+      const optionsWrap = dd.querySelector('.options');
       if(dd.classList.contains('year-dropdown')) populateYearDropdown(dd);
       selected.addEventListener('click', (e)=>{
         e.stopPropagation();
@@ -603,7 +613,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
         });
         dd.classList.toggle('open');
       });
-      options.addEventListener('click', (e)=>{
+      optionsWrap.addEventListener('click', (e)=>{
         const opt = e.target.closest('.option');
         if(!opt) return;
         selected.innerHTML = opt.innerHTML;
