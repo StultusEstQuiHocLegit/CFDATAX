@@ -571,12 +571,10 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
         currentMode = 'compare';
         searchbarEl.style.display = 'none';
         comparebarEl.style.display = 'flex';
-        resultsEl.className = 'fin-grid compare-grid';
       }else{
         currentMode = 'search';
         searchbarEl.style.display = 'flex';
         comparebarEl.style.display = 'none';
-        resultsEl.className = 'grid';
       }
       if(compareDividerEl) compareDividerEl.style.display = 'none';
     }
