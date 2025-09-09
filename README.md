@@ -145,6 +145,8 @@ Example for quarterly report company data:
 
 ### USA Federal Holidays for Year 2024
 
+On the following days and on weekends, of course no bankruptcies happened.
+
 | Date        | Day of Week | Holiday Name                               |
 | ----------- | ----------- | ------------------------------------------ |
 | January 1   | Monday      | New Year’s Day                             |
