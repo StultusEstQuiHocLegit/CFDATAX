@@ -125,6 +125,7 @@ Historical reports for each company from `YEAR - 10` through `YEAR` (2014‑2024
 | QuarterlyReportLinkQ1 | link to the HTML file with the quarterly report for Q1 |
 | QuarterlyReportLinkQ2 | link to the HTML file with the quarterly report for Q2 |
 | QuarterlyReportLinkQ3 | link to the HTML file with the quarterly report for Q3 |
+| QuarterlyReportLinkQ4 | link to the HTML file with the quarterly report for Q4 |
 
 ## ./AnnualReports/
 
