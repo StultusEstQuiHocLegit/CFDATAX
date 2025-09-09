@@ -161,3 +161,103 @@ On the following days and on weekends, of course no bankruptcies happened.
 | November 28 | Thursday    | Thanksgiving Day                           |
 | December 25 | Wednesday   | Christmas Day                              |
 
+## Financial Ratio Columns
+
+The `DataProcessor0.php` script enriches `financials.csv` and `financials_solvent.csv` with additional ratios and distress scores. The table below lists all columns now present in these files, old and new ones.
+
+| Column | Description | Explanation |
+| --- | --- | --- |
+| idpk | sequential row identifier | |
+| CIK | central index key matching main.csv | |
+| year | fiscal year of the data | |
+| assets | total assets | |
+| CurrentAssets | current assets | |
+| NoncurrentAssets | non‑current assets | |
+| liabilities | total liabilities | |
+| CurrentLiabilities | current liabilities | |
+| NoncurrentLiabilities | non‑current liabilities | |
+| LiabilitiesAndStockholdersEquity | liabilities and stockholders' equity | |
+| equity | stockholders' equity | |
+| CommonStockValue | value of common stock | |
+| RetainedEarningsAccumulatedDeficit | retained earnings or accumulated deficit | |
+| AccumulatedOtherComprehensiveIncomeLoss | aoci | |
+| MinorityInterest | minority interest | |
+| revenues | total revenues | |
+| SalesRevenueNet | net sales revenue | |
+| CostOfGoodsSold | cost of goods sold | |
+| GrossProfit | gross profit | |
+| OperatingExpenses | operating expenses | |
+| SellingGeneralAndAdministrativeExpense | sg&a expense | |
+| ResearchAndDevelopmentExpense | research and development expense | |
+| OperatingIncomeLoss | operating income or loss | |
+| InterestExpense | interest expense | |
+| IncomeBeforeIncomeTaxes | income before taxes | |
+| IncomeTaxExpenseBenefit | income tax expense or benefit | |
+| NetIncomeLoss | net income or loss | |
+| PreferredStockDividendsAndOtherAdjustments | preferred stock dividends and other adjustments | |
+| NetIncomeLossAvailableToCommonStockholdersBasic | net income available to common stockholders (basic) | |
+| EarningsPerShareBasic | basic earnings per share | |
+| EarningsPerShareDiluted | diluted earnings per share | |
+| WeightedAverageNumberOfSharesOutstandingBasic | weighted average shares outstanding (basic) | |
+| WeightedAverageNumberOfDilutedSharesOutstanding | weighted average shares outstanding (diluted) | |
+| NetCashProvidedByUsedInOperatingActivities | net cash provided by or used in operating activities | |
+| NetCashProvidedByUsedInInvestingActivities | net cash provided by or used in investing activities | |
+| NetCashProvidedByUsedInFinancingActivities | net cash provided by or used in financing activities | |
+| CashAndCashEquivalentsPeriodIncreaseDecrease | increase/decrease in cash and cash equivalents | |
+| CashAndCashEquivalentsAtCarryingValue | cash and cash equivalents at carrying value | |
+| PaymentsToAcquirePropertyPlantAndEquipment | capital expenditures | |
+| ProceedsFromIssuanceOfCommonStock | proceeds from issuing common stock | |
+| PaymentsOfDividends | dividend payments | |
+| RepaymentsOfDebt | debt repayments | |
+| ProceedsFromIssuanceOfDebt | proceeds from issuing debt | |
+| DepreciationAndAmortization | depreciation and amortization | |
+| InventoryNet | net inventory | |
+| AccountsReceivableNetCurrent | net current accounts receivable | |
+| AccountsPayableCurrent | current accounts payable | |
+| Goodwill | goodwill | |
+| IntangibleAssetsNetExcludingGoodwill | intangible assets excluding goodwill | |
+| PropertyPlantAndEquipmentNet | property, plant and equipment (net) | |
+| LongTermDebtNoncurrent | non‑current long‑term debt | |
+| ShortTermBorrowings | short‑term borrowings | |
+| IncomeTaxesPayableCurrent | current income taxes payable | |
+| EntityRegistrantName | entity registrant name | |
+| EntityCentralIndexKey | central index key (repeated) | |
+| TradingSymbol | trading symbol | |
+| EntityIncorporationStateCountryCode | state or country of incorporation | |
+| EntityFilerCategory | filer category | |
+| DocumentPeriodEndDate | document period end date | |
+| DocumentFiscalPeriodFocus | document fiscal period focus | |
+| DocumentFiscalYearFocus | document fiscal year focus | |
+| DocumentType | document type | |
+| AmendmentFlag | amendment flag | |
+| CurrentFiscalYearEndDate | current fiscal year end date | |
+| TL_TA | leverage (total liabilities / total assets) | Measures overall leverage by comparing total liabilities to total assets; formula: `liabilities / assets`. |
+| Debt_Assets | debt to assets | Uses long‑term and short‑term borrowings as a proxy for total debt; formula: `(LongTermDebtNoncurrent + ShortTermBorrowings) / assets`. |
+| EBIT_InterestExpense | EBIT over interest expense | Interest coverage using `OperatingIncomeLoss` as an EBIT proxy; formula: `OperatingIncomeLoss / InterestExpense`. |
+| EBITDA_InterestExpense | EBITDA over interest expense | Adds `DepreciationAndAmortization` to operating income to approximate EBITDA; formula: `(OperatingIncomeLoss + DepreciationAndAmortization) / InterestExpense`. |
+| CFO_Liabilities | cash flow to liabilities | Gauges ability to cover total liabilities with operating cash flow; formula: `NetCashProvidedByUsedInOperatingActivities / liabilities`. |
+| CFO_DebtService | cash flow to interest and debt payments | Measures cash flow sufficiency for servicing interest and principal; formula: `NetCashProvidedByUsedInOperatingActivities / (InterestExpense + RepaymentsOfDebt)`. |
+| CurrentRatio | current ratio | Liquidity metric of short‑term assets over short‑term obligations; formula: `CurrentAssets / CurrentLiabilities`. |
+| QuickRatio | quick ratio | Acid‑test ratio excluding inventory from current assets; formula: `(CurrentAssets - InventoryNet) / CurrentLiabilities`. |
+| WC_TA | working capital to assets | Working capital relative to total assets; formula: `(CurrentAssets - CurrentLiabilities) / assets`. |
+| ROA | return on assets | Profitability ratio showing net income generated per dollar of assets; formula: `NetIncomeLoss / assets`. |
+| OperatingMargin | operating margin | Operating profitability per sales dollar; formula: `OperatingIncomeLoss / SalesRevenueNet`. |
+| DaysAR | days accounts receivable | Average collection period for receivables; formula: `365 * AccountsReceivableNetCurrent / SalesRevenueNet`. |
+| DaysINV | days inventory | Average days inventory is held; formula: `365 * InventoryNet / CostOfGoodsSold`. |
+| DaysAP | days accounts payable | Average time to pay suppliers; formula: `365 * AccountsPayableCurrent / CostOfGoodsSold`. |
+| CashConversionCycle | cash conversion cycle | Operating cycle net of payables; formula: `DaysAR + DaysINV - DaysAP`. |
+| Accruals | Sloan accruals | Measures accrual quality using average assets in the denominator; formula: `(NetIncomeLoss - NetCashProvidedByUsedInOperatingActivities) / average(assets)`. |
+| DividendOmission | dividend dropped to zero after being positive | Indicator equals 1 if `PaymentsOfDividends` falls to zero after previously being positive. |
+| DebtIssuanceSpike | large spike in debt issuance | Flags when `ProceedsFromIssuanceOfDebt` is at least three times the prior year; indicator = 1 if condition met. |
+| DebtRepaymentSpike | large spike in debt repayments | Flags when `RepaymentsOfDebt` is at least three times the prior year; indicator = 1 if condition met. |
+| AltmanZPrime | Altman Z′ score | Bankruptcy risk model for private firms; formula: `0.717*(CurrentAssets - CurrentLiabilities)/assets + 0.847*RetainedEarningsAccumulatedDeficit/assets + 3.107*OperatingIncomeLoss/assets + 0.420*equity/liabilities + 0.998*SalesRevenueNet/assets`. |
+| AltmanZDoublePrime | Altman Z″ score | Variant for non‑manufacturers; formula: `6.56*(CurrentAssets - CurrentLiabilities)/assets + 3.26*RetainedEarningsAccumulatedDeficit/assets + 6.72*OperatingIncomeLoss/assets + 1.05*equity/liabilities`. |
+| OhlsonOScore | Ohlson distress score T | Logit‑based distress score incorporating size, leverage, liquidity and performance; formula: `-1.32 - 0.407*ln(assets) + 6.03*liabilities/assets - 1.43*(CurrentAssets - CurrentLiabilities)/assets + 0.0757*CurrentLiabilities/CurrentAssets - 1.72*I(liabilities > assets) - 2.37*NetIncomeLoss/assets - 1.83*(NetIncomeLoss + DepreciationAndAmortization)/liabilities + 0.285*I(NetIncomeLoss<0 & prev NetIncomeLoss<0) - 0.521*(NetIncomeLoss - prev NetIncomeLoss)/(abs(NetIncomeLoss)+abs(prev NetIncomeLoss))`. |
+| OhlsonOScoreProb | probability of distress | Converts OhlsonOScore to probability; formula: `exp(OhlsonOScore) / (1 + exp(OhlsonOScore))`. |
+| ZmijewskiXScore | Zmijewski X-score | Probit model using profitability, leverage and liquidity; formula: `-4.3 - 4.5*(NetIncomeLoss/assets) + 5.7*(liabilities/assets) + 0.004*(CurrentAssets/CurrentLiabilities)`. |
+| SpringateSScore | Springate S-score | Four‑ratio failure model; formula: `1.03*(CurrentAssets - CurrentLiabilities)/assets + 3.07*OperatingIncomeLoss/assets + 0.66*IncomeBeforeIncomeTaxes/CurrentLiabilities + 0.40*SalesRevenueNet/assets`. |
+| TafflerZScore | Taffler z-score | UK model emphasizing short‑term funding capacity; formula: `3.20 + 12.18*IncomeBeforeIncomeTaxes/CurrentLiabilities + 2.50*CurrentAssets/liabilities - 10.68*CurrentLiabilities/assets + 0.029*((CurrentAssets - InventoryNet - CurrentLiabilities)/((SalesRevenueNet - IncomeBeforeIncomeTaxes - DepreciationAndAmortization)/365))`. |
+| FulmerHScore | Fulmer H-score | Nine‑variable failure model using multi‑year averages; formula: `5.528*avg(RetainedEarningsAccumulatedDeficit)/avg(assets) + 0.212*SalesRevenueNet/avg(assets) + 0.73*OperatingIncomeLoss/equity + 1.27*NetCashProvidedByUsedInOperatingActivities/avg(TotalDebt) - 0.12*avg(TotalDebt)/equity + 2.335*CurrentLiabilities/avg(assets) + 0.575*ln(avg(assets - Goodwill - IntangibleAssetsNetExcludingGoodwill)) + 1.083*avg(CurrentAssets - CurrentLiabilities)/avg(TotalDebt) + 0.894*ln(OperatingIncomeLoss)/InterestExpense - 6.075`, where `TotalDebt = ShortTermBorrowings + LongTermDebtNoncurrent`. |
+| GroverGScore | Grover G-score | Three‑ratio discriminant model; formula: `1.650*(CurrentAssets - CurrentLiabilities)/assets + 3.404*OperatingIncomeLoss/assets - 0.016*NetIncomeLoss/assets + 0.057`. |
+| BeneishMScore | Beneish M-score | Flags potential earnings manipulation using eight year‑over‑year indices (DSRI, GMI, AQI, SGI, DEPI, SGAI, TATA, LVGI); formula: `-4.84 + 0.92*DSRI + 0.528*GMI + 0.404*AQI + 0.892*SGI + 0.115*DEPI - 0.172*SGAI + 4.679*TATA - 0.327*LVGI`. |
+| PiotroskiFScore | Piotroski F-score (0‑9) | Sum of nine binary signals on profitability, leverage, liquidity and operating efficiency; each signal equals 1 when an improvement condition is met, else 0. |
