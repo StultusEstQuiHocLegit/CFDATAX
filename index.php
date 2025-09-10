@@ -665,7 +665,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
           const sorted = values[k].slice().sort((a,b)=>a-b);
           const mid = Math.floor(sorted.length/2);
           const median = sorted.length % 2 === 0 ? (sorted[mid-1] + sorted[mid]) / 2 : sorted[mid];
-          out[k] = {mean, stdDev, median};
+          out[k] = {mean, stdDev, median, count: counts[k]};
         }
       }
       return out;
@@ -685,13 +685,15 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
         .filter(k => k in a || k in b);
       for(const k of keys){
         if(!(k in a) || !(k in b)) continue;
-        const unit = METRIC_UNITS[k] || 'USD';
+        const unit = Object.prototype.hasOwnProperty.call(METRIC_UNITS, k) ? METRIC_UNITS[k] : 'USD';
         const v1 = Math.round(a[k].mean);
         const v2 = Math.round(b[k].mean);
         const med1 = Math.round(a[k].median);
         const med2 = Math.round(b[k].median);
         const sd1 = a[k].stdDev;
         const sd2 = b[k].stdDev;
+        const count1 = a[k].count;
+        const count2 = b[k].count;
         const item = document.createElement('div');
         item.className = 'fin-item compare clickable';
         const kDiv = document.createElement('div');
@@ -752,7 +754,9 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
           yEnd1: year2El.dataset.value,
           status2: status2El.dataset.value,
           yStart2: year3El.dataset.value,
-          yEnd2: year4El.dataset.value
+          yEnd2: year4El.dataset.value,
+          count1,
+          count2
         };
         item.addEventListener('click', ()=>{
           openCompareDetail(k, v1, med1, sd1, v2, med2, sd2, meta);
@@ -844,7 +848,38 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       'PropertyPlantAndEquipmentNet':'good',
       'LongTermDebtNoncurrent':'bad',
       'ShortTermBorrowings':'bad',
-      'IncomeTaxesPayableCurrent':'bad'
+      'IncomeTaxesPayableCurrent':'bad',
+      // ratios and scores
+      'TL_TA':'bad',
+      'Debt_Assets':'bad',
+      'EBIT_InterestExpense':'good',
+      'EBITDA_InterestExpense':'good',
+      'CFO_Liabilities':'good',
+      'CFO_DebtService':'good',
+      'CurrentRatio':'good',
+      'QuickRatio':'good',
+      'WC_TA':'good',
+      'ROA':'good',
+      'OperatingMargin':'good',
+      'DaysAR':'bad',
+      'DaysINV':'bad',
+      'DaysAP':'good',
+      'CashConversionCycle':'bad',
+      'Accruals':'bad',
+      'DividendOmission':'bad',
+      'DebtIssuanceSpike':'bad',
+      'DebtRepaymentSpike':'good',
+      'AltmanZPrime':'good',
+      'AltmanZDoublePrime':'good',
+      'OhlsonOScore':'bad',
+      'OhlsonOScoreProb':'bad',
+      'ZmijewskiXScore':'bad',
+      'SpringateSScore':'good',
+      'TafflerZScore':'good',
+      'FulmerHScore':'good',
+      'GroverGScore':'good',
+      'BeneishMScore':'bad',
+      'PiotroskiFScore':'good'
     };
 
     function normalize(s){
@@ -905,7 +940,38 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       'EarningsPerShareBasic': 'USD/share',
       'EarningsPerShareDiluted': 'USD/share',
       'WeightedAverageNumberOfSharesOutstandingBasic': 'shares',
-      'WeightedAverageNumberOfDilutedSharesOutstanding': 'shares'
+      'WeightedAverageNumberOfDilutedSharesOutstanding': 'shares',
+      // units for ratios and scores
+      'TL_TA': '',
+      'Debt_Assets': '',
+      'EBIT_InterestExpense': '',
+      'EBITDA_InterestExpense': '',
+      'CFO_Liabilities': '',
+      'CFO_DebtService': '',
+      'CurrentRatio': '',
+      'QuickRatio': '',
+      'WC_TA': '',
+      'ROA': '',
+      'OperatingMargin': '',
+      'DaysAR': 'days',
+      'DaysINV': 'days',
+      'DaysAP': 'days',
+      'CashConversionCycle': 'days',
+      'Accruals': '',
+      'DividendOmission': '',
+      'DebtIssuanceSpike': '',
+      'DebtRepaymentSpike': '',
+      'AltmanZPrime': '',
+      'AltmanZDoublePrime': '',
+      'OhlsonOScore': '',
+      'OhlsonOScoreProb': '',
+      'ZmijewskiXScore': '',
+      'SpringateSScore': '',
+      'TafflerZScore': '',
+      'FulmerHScore': '',
+      'GroverGScore': '',
+      'BeneishMScore': '',
+      'PiotroskiFScore': ''
     };
 
     function formatAmount(val, unit='USD'){
@@ -931,7 +997,8 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       const fadedHTML = faded ? `<span style="opacity:.5">${faded}</span>` : '';
       const decimal = fracPart ? '.' + abs.toFixed(2).split('.')[1] : '';
       const decimalHTML = decimal ? `<span style="opacity:.7">${decimal}</span>` : '';
-      return `${sign}${prefix}${fadedHTML}${decimalHTML} <span style="opacity:.3">${unit}</span>`;
+      const unitHTML = unit ? ` <span style="opacity:.3">${unit}</span>` : '';
+      return `${sign}${prefix}${fadedHTML}${decimalHTML}${unitHTML}`;
     }
 
     function formatAmountPlain(val, unit='USD'){
@@ -939,7 +1006,8 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       if(isNaN(num)) return String(val);
       const sign = num < 0 ? '-' : '';
       const abs = Math.abs(num);
-      return `${sign}${abs.toLocaleString('en-US', {maximumFractionDigits:2})} ${unit}`;
+      const main = abs.toLocaleString('en-US', {maximumFractionDigits:2});
+      return unit ? `${sign}${main} ${unit}` : `${sign}${main}`;
     }
 
     function renderResults(list){
@@ -1110,7 +1178,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       const table = document.createElement('table');
       table.className = 'cmp-table';
       const tr = document.createElement('tr');
-      const unit = METRIC_UNITS[key] || 'USD';
+      const unit = Object.prototype.hasOwnProperty.call(METRIC_UNITS, key) ? METRIC_UNITS[key] : 'USD';
       const td1 = document.createElement('td');
       td1.className = 'amt left';
       const amtSpan1 = document.createElement('span');
@@ -1353,7 +1421,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       const info = document.createElement('div');
       info.style.marginTop = '48px';
       info.style.opacity = '0.3';
-      info.innerHTML = `(comparison: <span class="dot ${meta.status1==='solvent'?'green':'red'}"></span>&thinsp;${meta.status1}, ${meta.yStart1} to ${meta.yEnd1} | <span class="dot ${meta.status2==='solvent'?'green':'red'}"></span>&thinsp;${meta.status2}, ${meta.yStart2} to ${meta.yEnd2})`;
+      info.innerHTML = `(comparison: <span class="dot ${meta.status1==='solvent'?'green':'red'}"></span>&thinsp;${meta.status1}, ${meta.yStart1} to ${meta.yEnd1} (${meta.count1.toLocaleString('en-US')} observations) | <span class="dot ${meta.status2==='solvent'?'green':'red'}"></span>&thinsp;${meta.status2}, ${meta.yStart2} to ${meta.yEnd2} (${meta.count2.toLocaleString('en-US')} observations))`;
       modalContent.appendChild(info);
 
       const sentiment = METRIC_SENTIMENT[key] || 'neutral';
@@ -1416,7 +1484,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       anchor.insertAdjacentElement('afterend', chartCard);
       item.style.borderColor = 'var(--blue)';
       const ctx = canvas.getContext('2d');
-      const unit = METRIC_UNITS[key] || 'USD';
+      const unit = Object.prototype.hasOwnProperty.call(METRIC_UNITS, key) ? METRIC_UNITS[key] : 'USD';
       const chart = new Chart(ctx, {
         type:'line',
         data:{ labels, datasets:[{ label: formatKV(key), data, borderColor:'#00aeef', backgroundColor:'rgba(0,174,239,0.2)', tension:0.1 }] },
@@ -1454,7 +1522,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
           const num = Number(String(val).replace(/,/g,''));
           const item = document.createElement('div');
           item.className = 'fin-item' + (val === '' ? ' empty' : (!Number.isNaN(num) && num === 0 ? ' zero' : ''));
-          const unit = METRIC_UNITS[k] || 'USD';
+          const unit = Object.prototype.hasOwnProperty.call(METRIC_UNITS, k) ? METRIC_UNITS[k] : 'USD';
           const formatted = formatAmount(val, unit);
           const sentiment = METRIC_SENTIMENT[k] || 'neutral';
           let pctHtml = '';
