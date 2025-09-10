@@ -5,9 +5,18 @@
 ini_set('display_errors','1');
 error_reporting(E_ALL);
 set_time_limit(0);
+ignore_user_abort(true);
+ob_implicit_flush(true);
 
 define('FINANCIAL_CSV_FILE', __DIR__ . '/financials.csv');
 define('FINANCIAL_CSV_FILE_SOLVENT', __DIR__ . '/financials_solvent.csv');
+
+$runningInCli = (php_sapi_name() === 'cli');
+if (!$runningInCli) {
+    header('Content-Type: text/html; charset=UTF-8');
+    echo "<!doctype html><meta charset='utf-8'><style>body{background:#000;color:#0f0;font:14px/1.4 monospace;padding:16px}</style><pre>";
+}
+logmsg('Starting financial data processing…');
 
 function logmsg(string $msg): void {
     $ts = date('H:i:s');
@@ -122,11 +131,11 @@ function process_file(string $file): void {
             $row['DebtRepaymentSpike'] = ($prev && (float)$prev['RepaymentsOfDebt']>0 && $repayDebt>=3*(float)$prev['RepaymentsOfDebt']) ? 1 : 0;
 
             if ($assets>0) {
-                $X1 = safeDiv($wc,$assets);
-                $X2 = safeDiv($retEarn,$assets);
-                $X3 = safeDiv($operIncome,$assets);
-                $X4 = safeDiv($equity,$liabilities);
-                $X5 = safeDiv($sales,$assets);
+                $X1 = (float)safeDiv($wc,$assets);
+                $X2 = (float)safeDiv($retEarn,$assets);
+                $X3 = (float)safeDiv($operIncome,$assets);
+                $X4 = (float)safeDiv($equity,$liabilities);
+                $X5 = (float)safeDiv($sales,$assets);
                 $row['AltmanZPrime'] = 0.717*$X1 + 0.847*$X2 + 3.107*$X3 + 0.420*$X4 + 0.998*$X5;
                 $row['AltmanZDoublePrime'] = 6.56*$X1 + 3.26*$X2 + 6.72*$X3 + 1.05*$X4;
             } else {
@@ -153,35 +162,35 @@ function process_file(string $file): void {
                 $row['OhlsonOScoreProb']='';
             }
 
-            $row['ZmijewskiXScore'] = -4.3 - 4.5*safeDiv($ni,$assets) + 5.7*safeDiv($liabilities,$assets) + 0.004*safeDiv($ca,$cl);
-            $A = safeDiv($wc,$assets);
-            $B = safeDiv($operIncome,$assets);
-            $C = safeDiv($incomeBeforeTax,$cl);
-            $D = safeDiv($sales,$assets);
+            $row['ZmijewskiXScore'] = -4.3 - 4.5*(float)safeDiv($ni,$assets) + 5.7*(float)safeDiv($liabilities,$assets) + 0.004*(float)safeDiv($ca,$cl);
+            $A = (float)safeDiv($wc,$assets);
+            $B = (float)safeDiv($operIncome,$assets);
+            $C = (float)safeDiv($incomeBeforeTax,$cl);
+            $D = (float)safeDiv($sales,$assets);
             $row['SpringateSScore'] = 1.03*$A + 3.07*$B + 0.66*$C + 0.40*$D;
-            $x1 = safeDiv($incomeBeforeTax,$cl);
-            $x2 = safeDiv($ca,$liabilities);
-            $x3 = safeDiv($cl,$assets);
+            $x1 = (float)safeDiv($incomeBeforeTax,$cl);
+            $x2 = (float)safeDiv($ca,$liabilities);
+            $x3 = (float)safeDiv($cl,$assets);
             $dailyOpEx = ($sales - $incomeBeforeTax - $dep)/365;
-            $x4 = safeDiv($quickAssets - $cl, $dailyOpEx);
+            $x4 = (float)safeDiv($quickAssets - $cl, $dailyOpEx);
             $row['TafflerZScore'] = 3.20 + 12.18*$x1 + 2.50*$x2 - 10.68*$x3 + 0.029*$x4;
             $avgRetEarn = $prev ? avg($retEarn,(float)$prev['RetainedEarningsAccumulatedDeficit']) : $retEarn;
             $avgAssets2 = $prev ? avg($assets,(float)$prev['assets']) : $assets;
             $avgTotalDebt = $prev ? avg($totalDebt,(float)$prev['LongTermDebtNoncurrent']+(float)$prev['ShortTermBorrowings']) : $totalDebt;
-            $X1 = safeDiv($avgRetEarn,$avgAssets2);
-            $X2 = safeDiv($sales,$avgAssets2);
-            $X3 = safeDiv($operIncome,$equity);
-            $X4 = safeDiv($cfo,$avgTotalDebt);
-            $X5 = safeDiv($avgTotalDebt,$equity);
-            $X6 = safeDiv($cl,$avgAssets2);
+            $X1 = (float)safeDiv($avgRetEarn,$avgAssets2);
+            $X2 = (float)safeDiv($sales,$avgAssets2);
+            $X3 = (float)safeDiv($operIncome,$equity);
+            $X4 = (float)safeDiv($cfo,$avgTotalDebt);
+            $X5 = (float)safeDiv($avgTotalDebt,$equity);
+            $X6 = (float)safeDiv($cl,$avgAssets2);
             $tangible = $assets - (float)($row['Goodwill'] ?? 0) - (float)($row['IntangibleAssetsNetExcludingGoodwill'] ?? 0);
             $tangiblePrev = $prev ? ((float)$prev['assets'] - (float)$prev['Goodwill'] - (float)$prev['IntangibleAssetsNetExcludingGoodwill']) : $tangible;
             $avgTangible = $prev ? avg($tangible,$tangiblePrev) : $tangible;
             $X7 = $avgTangible>0 ? log($avgTangible) : '';
             $X8 = ($avgTotalDebt>0) ? safeDiv($wc,$avgTotalDebt) : '';
             $X9 = ($operIncome>0 && $interest!=0) ? safeDiv(log($operIncome),$interest) : '';
-            $row['FulmerHScore'] = ($X7!=='' && $X8!=='' && $X9!=='') ? (5.528*$X1 + 0.212*$X2 + 0.73*$X3 + 1.27*$X4 -0.12*$X5 + 2.335*$X6 + 0.575*$X7 + 1.083*$X8 + 0.894*$X9 -6.075) : '';
-            $row['GroverGScore'] = 1.650*$A + 3.404*$B - 0.016*safeDiv($ni,$assets) + 0.057;
+            $row['FulmerHScore'] = ($X7!=='' && $X8!=='' && $X9!=='') ? (5.528*(float)$X1 + 0.212*(float)$X2 + 0.73*(float)$X3 + 1.27*(float)$X4 -0.12*(float)$X5 + 2.335*(float)$X6 + 0.575*(float)$X7 + 1.083*(float)$X8 + 0.894*(float)$X9 -6.075) : '';
+            $row['GroverGScore'] = 1.650*$A + 3.404*$B - 0.016*(float)safeDiv($ni,$assets) + 0.057;
             if ($prev) {
                 $ar_prev = (float)$prev['AccountsReceivableNetCurrent'];
                 $sales_prev = (float)$prev['SalesRevenueNet'];
@@ -196,7 +205,7 @@ function process_file(string $file): void {
                 $sgai = ($sales_prev!=0 && $sales!=0) ? safeDiv((float)$row['SellingGeneralAndAdministrativeExpense']/$sales, (float)$prev['SellingGeneralAndAdministrativeExpense']/$sales_prev) : '';
                 $lvgi = ($assets!=0 && (float)$prev['assets']!=0) ? safeDiv(($cl+$ltDebt)/$assets, ((float)$prev['CurrentLiabilities']+(float)$prev['LongTermDebtNoncurrent'])/(float)$prev['assets']) : '';
                 $tata = $assets!=0 ? ($ni-$cfo)/$assets : '';
-                $row['BeneishMScore'] = -4.84 + 0.92*$dsri + 0.528*$gmi + 0.404*$aqi + 0.892*$sgi + 0.115*$depi - 0.172*$sgai + 4.679*$tata - 0.327*$lvgi;
+                $row['BeneishMScore'] = -4.84 + 0.92*(float)$dsri + 0.528*(float)$gmi + 0.404*(float)$aqi + 0.892*(float)$sgi + 0.115*(float)$depi - 0.172*(float)$sgai + 4.679*(float)$tata - 0.327*(float)$lvgi;
             } else {
                 $row['BeneishMScore'] = '';
             }
