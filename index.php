@@ -879,7 +879,9 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       'FulmerHScore':'good',
       'GroverGScore':'good',
       'BeneishMScore':'bad',
-      'PiotroskiFScore':'good'
+      'PiotroskiFScore':'good',
+      'AIExpectedLikelihoodOfBankruptcyBase':'bad',
+      'AIExpectedLikelihoodOfBankruptcyExtended':'bad'
     };
 
     function normalize(s){
@@ -971,7 +973,9 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
       'FulmerHScore': '',
       'GroverGScore': '',
       'BeneishMScore': '',
-      'PiotroskiFScore': ''
+      'PiotroskiFScore': '',
+      'AIExpectedLikelihoodOfBankruptcyBase': '%',
+      'AIExpectedLikelihoodOfBankruptcyExtended': '%'
     };
 
     function formatAmount(val, unit='USD'){
