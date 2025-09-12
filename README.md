@@ -264,6 +264,6 @@ The `DataProcessor0.php` script enriches `financials.csv` and `financials_solven
 
 ## DataProcessor1.php
 
-`DataProcessor1.php` calls the OpenAI API to rate the expected likelihood of bankruptcy for each company-year in `financials.csv` and `financials_solvent.csv`. It runs two rounds per row per batch: the base round uses only the original financial columns, while the extended round also includes the derived ratios and scores. Before sending data to the model, `idpk` is removed and `CIK` is renamed to `CompanyID` to decrease payload size and increase clarity. The resulting percentages are stored in the rows `AIExpectedLikelihoodOfBankruptcyBase` and `AIExpectedLikelihoodOfBankruptcyExtended`, which are added to both CSV files correspondingly.
+`DataProcessor1.php` calls the OpenAI API to rate the expected likelihood of bankruptcy for each company for each year in `financials.csv` and `financials_solvent.csv`. It runs two rounds per row per batch: the base round uses only the original financial columns, while the extended round also includes the derived ratios and scores. Before sending data to the model, `idpk` is removed and `CIK` is renamed to `CompanyID` to decrease payload size and increase clarity. The resulting percentages are stored in the rows `AIExpectedLikelihoodOfBankruptcyBase` and `AIExpectedLikelihoodOfBankruptcyExtended`, which are added to both CSV files correspondingly.
 
 **Note:** For replication, before running the script, edit `config.php` and replace `SAMEPLACEHOLDERFORTHEAPIKEY` with your actual API key.
