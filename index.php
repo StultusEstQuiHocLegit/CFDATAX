@@ -593,7 +593,7 @@ $payload = array('main'=>$main, 'financials'=>$financials, 'reports'=>$reports);
     function populateYearDropdown(dd){
       const opts = dd.querySelector('.options-scroll');
       if(!opts) return;
-      for(let y=2024; y>=2000; y--){
+      for(let y=2024; y>=2014; y--){
         const div = document.createElement('div');
         div.className='option';
         div.dataset.value=String(y);
